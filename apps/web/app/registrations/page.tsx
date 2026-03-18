@@ -336,7 +336,7 @@ export default function RegistrationsPage() {
         setRegForm({
           cardNumber: reg.cardNumber ?? "",
           trSl: reg.trSl ?? "",
-          status: reg.status,
+          status: (reg.status === "BLOCKED" ? "ACTIVE" : reg.status) as RegForm["status"],
           observations: reg.observations ?? "",
         });
       });
