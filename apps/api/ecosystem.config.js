@@ -1,7 +1,5 @@
 // CONTROLE VEICULOS API - PM2 Configuration
 // Otimizado para producao na VPS (porta 3600, 2 instancias)
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 module.exports = {
   apps: [
