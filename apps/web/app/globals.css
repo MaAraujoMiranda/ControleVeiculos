@@ -1,0 +1,351 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Design System: Slate Pro — Clean SaaS Professional
+   Paleta: Zinc base + Índigo accent (substitui ouro/bege)
+   ============================================================ */
+
+:root {
+  /* Superfícies */
+  --background:     #F4F4F7;
+  --surface:        #FFFFFF;
+  --surface-strong: #F9F9FB;
+  --surface-raised: #FFFFFF;
+  --surface-dark:   #0F0E17;
+
+  /* Texto */
+  --foreground: #0D0D14;
+  --muted:      #64748B;
+  --subtle:     #94A3B8;
+
+  /* Bordas */
+  --border:        #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Accent — Índigo */
+  --accent:        #4F46E5;
+  --accent-strong: #4338CA;
+  --accent-soft:   rgba(79, 70, 229, 0.08);
+
+  /* Semântico */
+  --info:    #0EA5E9;
+  --success: #10B981;
+  --danger:  #EF4444;
+  --warning: #F59E0B;
+
+  --info-soft:    rgba(14, 165, 233, 0.08);
+  --success-soft: rgba(16, 185, 129, 0.08);
+  --danger-soft:  rgba(239, 68, 68, 0.08);
+  --warning-soft: rgba(245, 158, 11, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-code);
+}
+
+html,
+body {
+  min-height: 100vh;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(79, 70, 229, 0.15);
+}
+
+a,
+button {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+/* ----------------------------------------
+   Tema escuro
+   ---------------------------------------- */
+
+:root[data-theme="dark"] {
+  --background:     #09090C;
+  --surface:        #111118;
+  --surface-strong: #17171F;
+  --surface-raised: #1C1C26;
+  --surface-dark:   #06060A;
+
+  --foreground: #F1F5F9;
+  --muted:      #94A3B8;
+  --subtle:     #64748B;
+
+  --border:        #1E1E2C;
+  --border-strong: #2C2C3C;
+
+  --accent:        #818CF8;
+  --accent-strong: #A5B4FC;
+  --accent-soft:   rgba(129, 140, 248, 0.10);
+
+  --info:    #38BDF8;
+  --success: #34D399;
+  --danger:  #F87171;
+  --warning: #FBBF24;
+
+  --info-soft:    rgba(56, 189, 248, 0.08);
+  --success-soft: rgba(52, 211, 153, 0.08);
+  --danger-soft:  rgba(248, 113, 113, 0.08);
+  --warning-soft: rgba(251, 191, 36, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background:     #09090C;
+    --surface:        #111118;
+    --surface-strong: #17171F;
+    --surface-raised: #1C1C26;
+    --surface-dark:   #06060A;
+    --foreground: #F1F5F9;
+    --muted:      #94A3B8;
+    --subtle:     #64748B;
+    --border:        #1E1E2C;
+    --border-strong: #2C2C3C;
+    --accent:        #818CF8;
+    --accent-strong: #A5B4FC;
+    --accent-soft:   rgba(129, 140, 248, 0.10);
+    --info:    #38BDF8;
+    --success: #34D399;
+    --danger:  #F87171;
+    --warning: #FBBF24;
+    --info-soft:    rgba(56, 189, 248, 0.08);
+    --success-soft: rgba(52, 211, 153, 0.08);
+    --danger-soft:  rgba(248, 113, 113, 0.08);
+    --warning-soft: rgba(251, 191, 36, 0.08);
+  }
+}
+
+/* ----------------------------------------
+   Animações
+   ---------------------------------------- */
+
+@keyframes app-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes app-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   CAMADA DE COMPONENTES
+   ============================================================ */
+
+@layer components {
+  /* ----------------------------------------------------------
+     Painéis / Cards — planos com borda sutil (sem glassmorphism)
+     ---------------------------------------------------------- */
+
+  .app-panel {
+    @apply rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.05),
+      0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  .app-panel-soft {
+    @apply rounded-xl border border-[var(--border)] bg-[var(--surface-strong)] p-5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  }
+
+  /* Painel escuro: gradiente índigo/violeta premium */
+  .app-panel-dark {
+    @apply rounded-xl border p-5;
+    background: linear-gradient(145deg, #1E1B4B 0%, #3730A3 40%, #4F46E5 70%, #7C3AED 100%);
+    border-color: rgba(165, 180, 252, 0.15);
+    box-shadow:
+      0 8px 32px rgba(79, 70, 229, 0.22),
+      0 2px 6px rgba(0, 0, 0, 0.12);
+    color: #F8FAFC;
+  }
+
+  /* ----------------------------------------------------------
+     Inputs
+     ---------------------------------------------------------- */
+
+  .app-input,
+  .app-select,
+  .app-textarea {
+    @apply mt-1.5 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--subtle)] transition-all;
+  }
+
+  .app-input:focus,
+  .app-select:focus,
+  .app-textarea:focus {
+    @apply border-[var(--accent)];
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .app-textarea {
+    @apply min-h-24 resize-y;
+  }
+
+  .app-label {
+    @apply text-sm font-medium text-[var(--foreground)];
+  }
+
+  /* ----------------------------------------------------------
+     Botões
+     ---------------------------------------------------------- */
+
+  .app-button-primary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-50;
+    background: var(--accent);
+    box-shadow:
+      0 1px 3px rgba(79, 70, 229, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .app-button-primary:hover:not(:disabled) {
+    background: var(--accent-strong);
+    box-shadow:
+      0 4px 14px rgba(79, 70, 229, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    transform: translateY(-1px);
+  }
+
+  .app-button-primary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .app-button-secondary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition-all;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .app-button-secondary:hover {
+    @apply border-[var(--border-strong)] bg-[var(--surface-strong)];
+    transform: translateY(-1px);
+  }
+
+  .app-button-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] transition-all hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)];
+  }
+
+  /* ----------------------------------------------------------
+     Badges
+     ---------------------------------------------------------- */
+
+  .app-badge {
+    @apply inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-0.5 text-xs font-medium text-[var(--muted)];
+  }
+
+  /* ----------------------------------------------------------
+     Cards de Métricas
+     ---------------------------------------------------------- */
+
+  .app-metric-card {
+    @apply relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+
+  .app-metric-card::before {
+    content: "";
+    position: absolute;
+    top: -1.5rem;
+    right: -1.5rem;
+    width: 7rem;
+    height: 7rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle, var(--accent-soft) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ----------------------------------------------------------
+     Tabelas
+     ---------------------------------------------------------- */
+
+  .app-table-shell {
+    @apply overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)];
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .app-table {
+    @apply min-w-full divide-y divide-[var(--border)] text-sm;
+  }
+
+  .app-table th {
+    @apply bg-[var(--surface-strong)] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-[var(--muted)];
+  }
+
+  .app-table td {
+    @apply px-4 py-3.5 align-middle text-[var(--foreground)];
+  }
+
+  .app-table tbody tr {
+    @apply border-t border-[var(--border)] bg-[var(--surface)] transition-colors hover:bg-[var(--surface-strong)];
+  }
+
+  /* ----------------------------------------------------------
+     Alertas de Status
+     ---------------------------------------------------------- */
+
+  .app-status-success {
+    @apply rounded-lg border px-4 py-3 text-sm font-medium;
+    background: var(--success-soft);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+  }
+
+  .app-status-error {
+    @apply rounded-lg border px-4 py-3 text-sm font-medium;
+    background: var(--danger-soft);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--danger);
+  }
+
+  /* ----------------------------------------------------------
+     Animações
+     ---------------------------------------------------------- */
+
+  .app-rise-in {
+    animation: app-rise-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .app-float {
+    animation: app-float 4s ease-in-out infinite;
+  }
+
+  /* Legado — mantido para compatibilidade */
+  .app-surface-grid {
+  }
+}
