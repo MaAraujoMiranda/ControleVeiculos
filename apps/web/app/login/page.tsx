@@ -26,8 +26,8 @@ const features = [
 export default function LoginPage() {
   const router = useRouter();
   const { session, loading, login } = useAuth();
-  const [email, setEmail] = useState("admin@controle.local");
-  const [password, setPassword] = useState("Admin@123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
