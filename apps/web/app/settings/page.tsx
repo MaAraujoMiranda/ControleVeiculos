@@ -230,9 +230,9 @@ export default function SettingsPage() {
               Diagnostico rapido
             </p>
             <dl className="mt-4 grid gap-3 text-sm">
-              <div className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-[var(--border)] px-4 py-3">
+              <div className="flex flex-col gap-1 rounded-[1.25rem] border border-[var(--border)] px-4 py-3">
                 <dt className="text-[var(--muted)]">API base</dt>
-                <dd className="font-mono text-xs">
+                <dd className="min-w-0 truncate font-mono text-xs">
                   {process.env.NEXT_PUBLIC_API_URL}
                 </dd>
               </div>
