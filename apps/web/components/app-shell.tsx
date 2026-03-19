@@ -299,7 +299,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             Controle de Veículos
           </span>
         </div>
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+            title="Sair"
+          >
+            <IconLogout />
+          </button>
+        </div>
       </header>
 
       {/* ── Mobile bottom nav ── */}

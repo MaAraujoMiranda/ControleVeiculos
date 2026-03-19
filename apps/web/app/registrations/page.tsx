@@ -544,7 +544,7 @@ export default function RegistrationsPage() {
                   label="Dados do cliente"
                   desc="Nome, CPF e telefone são obrigatórios"
                 />
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do cliente"
                     photoUrl={clientForm.photoUrl}
@@ -611,7 +611,7 @@ export default function RegistrationsPage() {
                   label="Dados do veículo"
                   desc="Placa é obrigatória (antigo ou Mercosul)"
                 />
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do veículo"
                     photoUrl={vehicleForm.photoUrl}
@@ -1042,12 +1042,13 @@ export default function RegistrationsPage() {
           </div>
 
           <div className="app-table-shell">
+            <div className="overflow-x-auto">
             <table className="app-table">
               <thead>
                 <tr>
                   <th>Cliente</th>
                   <th>Veículo</th>
-                  <th>Cartão / TR SL</th>
+                  <th className="hidden sm:table-cell">Cartão / TR SL</th>
                   <th>Status</th>
                   <th>Ações</th>
                 </tr>
@@ -1097,7 +1098,7 @@ export default function RegistrationsPage() {
                         </p>
                       </td>
 
-                      <td>
+                      <td className="hidden sm:table-cell">
                         <p className="font-mono text-sm">
                           {reg.cardNumber || "—"}
                         </p>
@@ -1129,6 +1130,7 @@ export default function RegistrationsPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       </div>
