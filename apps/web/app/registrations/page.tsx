@@ -529,7 +529,7 @@ export default function RegistrationsPage() {
       {error && <div className="app-status-error">{error}</div>}
       {success && <div className="app-status-success">{success}</div>}
 
-      <div className="grid gap-6 xl:grid-cols-[620px_1fr]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,620px)_1fr]">
         {/* ══════════════════════════════════════════════════
             FORMULÁRIO
         ══════════════════════════════════════════════════ */}

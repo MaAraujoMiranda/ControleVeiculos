@@ -181,7 +181,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Contadores rápidos */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {[
             { label: "Clientes", value: totals.clients },
             { label: "Veículos", value: totals.vehicles },
