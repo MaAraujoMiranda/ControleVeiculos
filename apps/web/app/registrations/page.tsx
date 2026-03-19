@@ -533,7 +533,7 @@ export default function RegistrationsPage() {
         {/* ══════════════════════════════════════════════════
             FORMULÁRIO
         ══════════════════════════════════════════════════ */}
-        <div className="xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1">
+        <div className="min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1">
           {isEdit ? (
             /* ── Modo Edição (todos os campos editáveis) ── */
             <form className="space-y-4" onSubmit={handleEdit}>
@@ -544,7 +544,7 @@ export default function RegistrationsPage() {
                   label="Dados do cliente"
                   desc="Nome, CPF e telefone são obrigatórios"
                 />
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do cliente"
                     photoUrl={clientForm.photoUrl}
@@ -552,7 +552,7 @@ export default function RegistrationsPage() {
                       setClientForm((f) => ({ ...f, photoUrl: url }))
                     }
                   />
-                  <div className="min-w-0 flex-1 space-y-3">
+                  <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
                       <span className="app-label">Nome completo *</span>
                       <input
@@ -611,7 +611,7 @@ export default function RegistrationsPage() {
                   label="Dados do veículo"
                   desc="Placa é obrigatória (antigo ou Mercosul)"
                 />
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do veículo"
                     photoUrl={vehicleForm.photoUrl}
@@ -619,7 +619,7 @@ export default function RegistrationsPage() {
                       setVehicleForm((f) => ({ ...f, photoUrl: url }))
                     }
                   />
-                  <div className="min-w-0 flex-1 space-y-3">
+                  <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
                       <span className="app-label">Placa *</span>
                       <input
@@ -762,7 +762,7 @@ export default function RegistrationsPage() {
                   desc="Nome, CPF e telefone são obrigatórios"
                 />
 
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do cliente"
                     photoUrl={clientForm.photoUrl}
@@ -771,7 +771,7 @@ export default function RegistrationsPage() {
                     }
                   />
 
-                  <div className="min-w-0 flex-1 space-y-3">
+                  <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
                       <span className="app-label">Nome completo *</span>
                       <input
@@ -843,7 +843,7 @@ export default function RegistrationsPage() {
                   desc="Placa é obrigatória (antigo ou Mercosul)"
                 />
 
-                <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
                     label="Foto do veículo"
                     photoUrl={vehicleForm.photoUrl}
@@ -852,7 +852,7 @@ export default function RegistrationsPage() {
                     }
                   />
 
-                  <div className="min-w-0 flex-1 space-y-3">
+                  <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
                       <span className="app-label">Placa *</span>
                       <input
@@ -1005,7 +1005,7 @@ export default function RegistrationsPage() {
         {/* ══════════════════════════════════════════════════
             LISTA DE CADASTROS
         ══════════════════════════════════════════════════ */}
-        <div className="app-panel space-y-5">
+        <div className="app-panel min-w-0 space-y-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p
