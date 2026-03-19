@@ -295,7 +295,7 @@ button {
      ---------------------------------------------------------- */
 
   .app-table-shell {
-    @apply overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)];
+    @apply overflow-x-auto rounded-xl border border-[var(--border)] bg-[var(--surface)];
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 

@@ -1019,15 +1019,15 @@ export default function RegistrationsPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
-                className="app-input mt-0 min-w-44"
+                className="app-input mt-0 w-full"
                 placeholder="Buscar..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
               <select
-                className="app-select mt-0 min-w-36"
+                className="app-select mt-0 sm:w-40 shrink-0"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -1042,7 +1042,6 @@ export default function RegistrationsPage() {
           </div>
 
           <div className="app-table-shell">
-            <div className="overflow-x-auto">
             <table className="app-table">
               <thead>
                 <tr>
@@ -1130,7 +1129,6 @@ export default function RegistrationsPage() {
                 )}
               </tbody>
             </table>
-            </div>
           </div>
         </div>
       </div>
