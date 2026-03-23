@@ -28,6 +28,25 @@ enum AuditAction {
   LOGOUT
 }
 
+enum LicenseStatus {
+  TRIAL
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  PIX
+  BOLETO
+}
+
 model User {
   id           String     @id @default(cuid())
   name         String     @db.VarChar(160)
@@ -46,10 +65,11 @@ model Client {
   id              String         @id @default(cuid())
   name            String         @db.VarChar(160)
   nameNormalized  String         @db.VarChar(191)
+  company         String?        @db.VarChar(160)
   phone           String         @db.VarChar(20)
   phoneNormalized String         @db.VarChar(20)
   cpf             String         @db.VarChar(14)
-  cpfDigits       String         @unique @db.Char(11)
+  cpfDigits       String         @db.Char(11)
   photoUrl        String?        @db.MediumText
   notes           String?        @db.Text
   createdAt       DateTime       @default(now())
@@ -60,6 +80,7 @@ model Client {
 
   @@index([nameNormalized])
   @@index([phoneNormalized])
+  @@index([cpfDigits])
 }
 
 model Vehicle {
@@ -75,27 +96,32 @@ model Vehicle {
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?
   client          Client         @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  registrations   Registration[]
+  registrations   Registration[] @relation("RegVehicle1")
+  registrations2  Registration[] @relation("RegVehicle2")
 
   @@index([clientId])
 }
 
 model Registration {
-  id           String             @id @default(cuid())
-  clientId     String
-  vehicleId    String
-  cardNumber   String?            @unique @db.VarChar(50)
-  trSl         String?            @db.VarChar(50)
-  status       RegistrationStatus @default(ACTIVE)
-  observations String?            @db.Text
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
-  deletedAt    DateTime?
-  client       Client             @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  vehicle      Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id             String             @id @default(cuid())
+  clientId       String
+  vehicleId      String
+  vehicle2Id     String?
+  cardNumber     String?            @unique @db.VarChar(50)
+  trSl           String?            @db.VarChar(50)
+  status         RegistrationStatus @default(ACTIVE)
+  observations   String?            @db.Text
+  declarationUrl String?            @db.MediumText
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+  client         Client             @relation(fields: [clientId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle        Vehicle            @relation("RegVehicle1", fields: [vehicleId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  vehicle2       Vehicle?           @relation("RegVehicle2", fields: [vehicle2Id], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@index([clientId])
   @@index([vehicleId])
+  @@index([vehicle2Id])
 }
 
 model Configuration {
@@ -104,6 +130,37 @@ model Configuration {
   sessionDurationDays            Int      @default(7)
   createdAt                      DateTime @default(now())
   updatedAt                      DateTime @updatedAt
+}
+
+model License {
+  id              String        @id @default(cuid())
+  status          LicenseStatus @default(TRIAL)
+  expiresAt       DateTime
+  asaasCustomerId String?       @db.VarChar(191)
+  holderName      String?       @db.VarChar(160)
+  holderCpf       String?       @db.VarChar(14)
+  holderEmail     String?       @db.VarChar(191)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  payments        LicensePayment[]
+}
+
+model LicensePayment {
+  id             String        @id @default(cuid())
+  licenseId      String
+  asaasPaymentId String        @unique @db.VarChar(191)
+  amount         Decimal       @db.Decimal(10, 2)
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  daysAdded      Int           @default(30)
+  pixQrCode      String?       @db.Text
+  pixCopyPaste   String?       @db.Text
+  boletoUrl      String?       @db.Text
+  dueDate        DateTime
+  paidAt         DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  license        License       @relation(fields: [licenseId], references: [id])
 }
 
 model Session {

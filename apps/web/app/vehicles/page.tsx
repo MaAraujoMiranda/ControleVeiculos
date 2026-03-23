@@ -66,6 +66,7 @@ export default function VehiclesPage() {
           name: client.name,
           cpf: client.cpf,
           phone: client.phone,
+          company: client.company,
         })),
       );
     } catch (nextError) {
@@ -156,6 +157,7 @@ export default function VehiclesPage() {
             name: client.name,
             cpf: client.cpf,
             phone: client.phone,
+            company: client.company,
           })),
         );
         setRecords(vehiclesResponse.data);

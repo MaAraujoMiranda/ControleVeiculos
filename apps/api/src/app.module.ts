@@ -9,6 +9,8 @@ import { ConfigurationModule } from './configuration/configuration.module';
 import { PrismaModule } from './database/prisma.module';
 import { RegistrationsModule } from './registrations/registrations.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { UsersModule } from './users/users.module';
+import { LicenseModule } from './license/license.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { VehiclesModule } from './vehicles/vehicles.module';
     ClientsModule,
     VehiclesModule,
     RegistrationsModule,
+    UsersModule,
+    LicenseModule,
     PrismaModule,
   ],
   controllers: [AppController],

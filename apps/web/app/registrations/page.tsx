@@ -21,6 +21,7 @@ type Mode = "create" | "edit";
 
 interface ClientForm {
   name: string;
+  company: string;
   phone: string;
   cpf: string;
   photoUrl: string;
@@ -44,6 +45,7 @@ interface RegForm {
 
 const emptyClient: ClientForm = {
   name: "",
+  company: "",
   phone: "",
   cpf: "",
   photoUrl: "",
@@ -211,6 +213,74 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ── Componente: campos de veículo reutilizável ──────────────── */
+
+function VehicleFormFields({
+  form,
+  setForm,
+  required = false,
+}: {
+  form: VehicleForm;
+  setForm: React.Dispatch<React.SetStateAction<VehicleForm>>;
+  required?: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+      <PhotoPicker
+        label="Foto do veículo"
+        photoUrl={form.photoUrl}
+        onChange={(url) => setForm((f) => ({ ...f, photoUrl: url }))}
+      />
+      <div className="min-w-0 w-full flex-1 space-y-3">
+        <label className="block">
+          <span className="app-label">Placa {required ? "*" : ""}</span>
+          <input
+            className="app-input font-mono uppercase tracking-widest"
+            required={required}
+            value={form.plate}
+            onChange={(e) => setForm((f) => ({ ...f, plate: maskPlate(e.target.value) }))}
+            placeholder="ABC-1234 ou ABC1D23"
+            maxLength={8}
+          />
+        </label>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="app-label">Marca / Modelo</span>
+            <input
+              className="app-input"
+              value={form.brandModel}
+              onChange={(e) => setForm((f) => ({ ...f, brandModel: e.target.value }))}
+              placeholder="Ex: Honda Civic"
+            />
+          </label>
+          <label className="block">
+            <span className="app-label">Cor</span>
+            <input
+              className="app-input"
+              value={form.color}
+              onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+              placeholder="Ex: Prata"
+            />
+          </label>
+        </div>
+        <label className="block">
+          <span className="app-label">Categoria</span>
+          <select
+            className="app-select"
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+          >
+            <option value="">Selecione...</option>
+            {["Carro", "Moto", "Caminhonete", "Caminhão", "Van", "Ônibus", "Outros"].map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 /* ── Página principal ────────────────────────────────────────── */
 
 export default function RegistrationsPage() {
@@ -256,8 +326,18 @@ export default function RegistrationsPage() {
 
   const [clientForm, setClientForm] = useState<ClientForm>(emptyClient);
   const [vehicleForm, setVehicleForm] = useState<VehicleForm>(emptyVehicle);
+  const [vehicle2Form, setVehicle2Form] = useState<VehicleForm>(emptyVehicle);
+  const [hasVehicle2, setHasVehicle2] = useState(false);
+  const [declarationUrl, setDeclarationUrl] = useState("");
   const [regForm, setRegForm] = useState<RegForm>(emptyReg);
   const [editingReg, setEditingReg] = useState<RegistrationRecord | null>(null);
+  const [allowMultipleVehicles, setAllowMultipleVehicles] = useState(false);
+
+  useEffect(() => {
+    api.getConfiguration()
+      .then((c) => setAllowMultipleVehicles(c.allowMultipleVehiclesPerClient))
+      .catch(() => {});
+  }, []);
 
   async function loadRegistrations() {
     setLoading(true);
@@ -302,6 +382,9 @@ export default function RegistrationsPage() {
       setEditingReg(null);
       setClientForm(emptyClient);
       setVehicleForm(emptyVehicle);
+      setVehicle2Form(emptyVehicle);
+      setHasVehicle2(false);
+      setDeclarationUrl("");
       setRegForm(emptyReg);
       setError(null);
       setSuccess(null);
@@ -312,15 +395,18 @@ export default function RegistrationsPage() {
     setError(null);
     setSuccess(null);
     try {
-      const [fullClient, fullVehicle] = await Promise.all([
+      const promises: Promise<unknown>[] = [
         api.getClient(reg.clientId),
         api.getVehicle(reg.vehicleId),
-      ]);
+      ];
+      if (reg.vehicle2Id) promises.push(api.getVehicle(reg.vehicle2Id));
+      const [fullClient, fullVehicle, fullVehicle2] = await Promise.all(promises) as any[];
       startTransition(() => {
         setMode("edit");
         setEditingReg(reg);
         setClientForm({
           name: fullClient.name,
+          company: fullClient.company ?? "",
           phone: maskPhone(fullClient.phone),
           cpf: maskCpf(fullClient.cpf),
           photoUrl: fullClient.photoUrl ?? "",
@@ -333,6 +419,20 @@ export default function RegistrationsPage() {
           category: fullVehicle.category ?? "",
           photoUrl: fullVehicle.photoUrl ?? "",
         });
+        if (fullVehicle2) {
+          setHasVehicle2(true);
+          setVehicle2Form({
+            plate: maskPlate(fullVehicle2.plate),
+            brandModel: fullVehicle2.brandModel ?? "",
+            color: fullVehicle2.color ?? "",
+            category: fullVehicle2.category ?? "",
+            photoUrl: fullVehicle2.photoUrl ?? "",
+          });
+        } else {
+          setHasVehicle2(false);
+          setVehicle2Form(emptyVehicle);
+        }
+        setDeclarationUrl(reg.declarationUrl ?? "");
         setRegForm({
           cardNumber: reg.cardNumber ?? "",
           trSl: reg.trSl ?? "",
@@ -355,6 +455,7 @@ export default function RegistrationsPage() {
     try {
       const client = await api.createClient({
         name: clientForm.name,
+        company: clientForm.company || undefined,
         phone: clientForm.phone,
         cpf: clientForm.cpf,
         photoUrl: clientForm.photoUrl || undefined,
@@ -370,13 +471,28 @@ export default function RegistrationsPage() {
         photoUrl: vehicleForm.photoUrl || undefined,
       });
 
+      let vehicle2Id: string | undefined;
+      if (hasVehicle2 && vehicle2Form.plate) {
+        const v2 = await api.createVehicle({
+          clientId: client.id,
+          plate: vehicle2Form.plate,
+          brandModel: vehicle2Form.brandModel || undefined,
+          color: vehicle2Form.color || undefined,
+          category: vehicle2Form.category || undefined,
+          photoUrl: vehicle2Form.photoUrl || undefined,
+        });
+        vehicle2Id = v2.id;
+      }
+
       await api.createRegistration({
         clientId: client.id,
         vehicleId: vehicle.id,
+        vehicle2Id: vehicle2Id ?? null,
         cardNumber: regForm.cardNumber || undefined,
         trSl: regForm.trSl || undefined,
         status: regForm.status,
         observations: regForm.observations || undefined,
+        declarationUrl: declarationUrl || null,
       });
 
       setSuccess(`Cadastro de ${client.name} criado com sucesso.`);
@@ -398,9 +514,10 @@ export default function RegistrationsPage() {
     setSuccess(null);
 
     try {
-      await Promise.all([
+      const updatePromises: Promise<unknown>[] = [
         api.updateClient(editingReg.clientId, {
           name: clientForm.name,
+          company: clientForm.company || undefined,
           phone: clientForm.phone,
           cpf: clientForm.cpf,
           photoUrl: clientForm.photoUrl || undefined,
@@ -413,13 +530,42 @@ export default function RegistrationsPage() {
           category: vehicleForm.category || undefined,
           photoUrl: vehicleForm.photoUrl || undefined,
         }),
-      ]);
+      ];
+
+      let vehicle2Id: string | null = editingReg.vehicle2Id;
+      if (hasVehicle2 && vehicle2Form.plate) {
+        if (editingReg.vehicle2Id) {
+          await api.updateVehicle(editingReg.vehicle2Id, {
+            plate: vehicle2Form.plate,
+            brandModel: vehicle2Form.brandModel || undefined,
+            color: vehicle2Form.color || undefined,
+            category: vehicle2Form.category || undefined,
+            photoUrl: vehicle2Form.photoUrl || undefined,
+          });
+        } else {
+          const v2 = await api.createVehicle({
+            clientId: editingReg.clientId,
+            plate: vehicle2Form.plate,
+            brandModel: vehicle2Form.brandModel || undefined,
+            color: vehicle2Form.color || undefined,
+            category: vehicle2Form.category || undefined,
+            photoUrl: vehicle2Form.photoUrl || undefined,
+          });
+          vehicle2Id = v2.id;
+        }
+      } else if (!hasVehicle2) {
+        vehicle2Id = null;
+      }
+
+      await Promise.all(updatePromises);
 
       await api.updateRegistration(editingReg.id, {
+        vehicle2Id,
         cardNumber: regForm.cardNumber || undefined,
         trSl: regForm.trSl || undefined,
         status: regForm.status,
         observations: regForm.observations || undefined,
+        declarationUrl: declarationUrl || null,
       });
 
       setSuccess("Cadastro atualizado com sucesso.");
@@ -564,6 +710,17 @@ export default function RegistrationsPage() {
                         }
                       />
                     </label>
+                    <label className="block">
+                      <span className="app-label">Empresa / Organização</span>
+                      <input
+                        className="app-input"
+                        value={clientForm.company}
+                        onChange={(e) =>
+                          setClientForm((f) => ({ ...f, company: e.target.value }))
+                        }
+                        placeholder="Ex: AMR Construtora"
+                      />
+                    </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
                         <span className="app-label">CPF *</span>
@@ -673,6 +830,29 @@ export default function RegistrationsPage() {
                 </div>
               </div>
 
+              {/* ② b — 2º Veículo (se múltiplos permitidos) */}
+              {allowMultipleVehicles && (
+                <div className="app-panel space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionHeader
+                      number="2b"
+                      label="Segundo veículo"
+                      desc="Opcional — mesmo cliente, placa diferente"
+                    />
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-[var(--accent)] hover:underline"
+                      onClick={() => { setHasVehicle2(!hasVehicle2); if (hasVehicle2) setVehicle2Form(emptyVehicle); }}
+                    >
+                      {hasVehicle2 ? "Remover" : "+ Adicionar"}
+                    </button>
+                  </div>
+                  {hasVehicle2 && (
+                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} required />
+                  )}
+                </div>
+              )}
+
               {/* ③ Acesso */}
               <div className="app-panel space-y-4">
                 <SectionHeader
@@ -733,6 +913,32 @@ export default function RegistrationsPage() {
                     }
                   />
                 </label>
+              </div>
+
+              {/* ④ Declaração */}
+              <div className="app-panel space-y-4">
+                <SectionHeader
+                  number="4"
+                  label="Declaração assinada"
+                  desc="Foto da declaração do cliente (opcional)"
+                />
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+                  <PhotoPicker
+                    label="Foto da declaração"
+                    photoUrl={declarationUrl}
+                    onChange={setDeclarationUrl}
+                  />
+                  <div className="min-w-0 w-full flex-1">
+                    <p className="text-sm text-[var(--muted)]">
+                      Tire uma foto da declaração assinada pelo cliente. Clique na imagem para ampliar na tela de visualização.
+                    </p>
+                    {declarationUrl && (
+                      <button type="button" className="mt-2 text-xs text-[var(--danger)] hover:underline" onClick={() => setDeclarationUrl("")}>
+                        Remover declaração
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <div className="flex gap-3">
                   <button
                     type="submit"
@@ -784,7 +990,17 @@ export default function RegistrationsPage() {
                         placeholder="Ex: João Silva"
                       />
                     </label>
-
+                    <label className="block">
+                      <span className="app-label">Empresa / Organização</span>
+                      <input
+                        className="app-input"
+                        value={clientForm.company}
+                        onChange={(e) =>
+                          setClientForm((f) => ({ ...f, company: e.target.value }))
+                        }
+                        placeholder="Ex: AMR Construtora"
+                      />
+                    </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
                         <span className="app-label">CPF *</span>
@@ -842,85 +1058,31 @@ export default function RegistrationsPage() {
                   label="Dados do veículo"
                   desc="Placa é obrigatória (antigo ou Mercosul)"
                 />
-
-                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-                  <PhotoPicker
-                    label="Foto do veículo"
-                    photoUrl={vehicleForm.photoUrl}
-                    onChange={(url) =>
-                      setVehicleForm((f) => ({ ...f, photoUrl: url }))
-                    }
-                  />
-
-                  <div className="min-w-0 w-full flex-1 space-y-3">
-                    <label className="block">
-                      <span className="app-label">Placa *</span>
-                      <input
-                        className="app-input font-mono uppercase tracking-widest"
-                        required
-                        value={vehicleForm.plate}
-                        onChange={(e) =>
-                          setVehicleForm((f) => ({
-                            ...f,
-                            plate: maskPlate(e.target.value),
-                          }))
-                        }
-                        placeholder="ABC-1234 ou ABC1D23"
-                        maxLength={8}
-                      />
-                    </label>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="block">
-                        <span className="app-label">Marca / Modelo</span>
-                        <input
-                          className="app-input"
-                          value={vehicleForm.brandModel}
-                          onChange={(e) =>
-                            setVehicleForm((f) => ({
-                              ...f,
-                              brandModel: e.target.value,
-                            }))
-                          }
-                          placeholder="Ex: Honda Civic"
-                        />
-                      </label>
-                      <label className="block">
-                        <span className="app-label">Cor</span>
-                        <input
-                          className="app-input"
-                          value={vehicleForm.color}
-                          onChange={(e) =>
-                            setVehicleForm((f) => ({
-                              ...f,
-                              color: e.target.value,
-                            }))
-                          }
-                          placeholder="Ex: Prata"
-                        />
-                      </label>
-                    </div>
-                    <label className="block">
-                      <span className="app-label">Categoria</span>
-                      <select
-                        className="app-select"
-                        value={vehicleForm.category}
-                        onChange={(e) =>
-                          setVehicleForm((f) => ({
-                            ...f,
-                            category: e.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Selecione...</option>
-                        {["Carro", "Moto", "Caminhonete", "Caminhão", "Van", "Ônibus", "Outros"].map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                </div>
+                <VehicleFormFields form={vehicleForm} setForm={setVehicleForm} required />
               </div>
+
+              {/* ② b — 2º Veículo (se múltiplos permitidos) */}
+              {allowMultipleVehicles && (
+                <div className="app-panel space-y-4">
+                  <div className="flex items-center justify-between">
+                    <SectionHeader
+                      number="2b"
+                      label="Segundo veículo"
+                      desc="Opcional — mesmo cliente, placa diferente"
+                    />
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-[var(--accent)] hover:underline"
+                      onClick={() => { setHasVehicle2(!hasVehicle2); if (hasVehicle2) setVehicle2Form(emptyVehicle); }}
+                    >
+                      {hasVehicle2 ? "Remover" : "+ Adicionar"}
+                    </button>
+                  </div>
+                  {hasVehicle2 && (
+                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} required />
+                  )}
+                </div>
+              )}
 
               {/* ③ Acesso */}
               <div className="app-panel space-y-4">
@@ -989,7 +1151,32 @@ export default function RegistrationsPage() {
                     placeholder="Informações adicionais..."
                   />
                 </label>
+              </div>
 
+              {/* ④ Declaração */}
+              <div className="app-panel space-y-4">
+                <SectionHeader
+                  number="4"
+                  label="Declaração assinada"
+                  desc="Foto da declaração do cliente (opcional)"
+                />
+                <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
+                  <PhotoPicker
+                    label="Foto da declaração"
+                    photoUrl={declarationUrl}
+                    onChange={setDeclarationUrl}
+                  />
+                  <div className="min-w-0 w-full flex-1">
+                    <p className="text-sm text-[var(--muted)]">
+                      Tire uma foto da declaração assinada pelo cliente. Clique na imagem para ampliar na tela de visualização.
+                    </p>
+                    {declarationUrl && (
+                      <button type="button" className="mt-2 text-xs text-[var(--danger)] hover:underline" onClick={() => setDeclarationUrl("")}>
+                        Remover declaração
+                      </button>
+                    )}
+                  </div>
+                </div>
                 <button
                   type="submit"
                   className="app-button-primary w-full py-3"

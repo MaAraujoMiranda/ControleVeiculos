@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { api, getErrorMessage } from "../lib/api";
 import { formatDateTime, formatStatusLabel } from "../lib/format";
@@ -50,6 +51,7 @@ function SearchIcon() {
 /* ── Página ─────────────────────────────────────────────────── */
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
@@ -308,10 +310,14 @@ export default function DashboardPage() {
               records.map((reg) => (
                 <div
                   key={reg.id}
-                  className="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-[var(--surface-strong)] sm:flex-row sm:items-center sm:justify-between"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => router.push(`/registrations/${reg.id}`)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") router.push(`/registrations/${reg.id}`); }}
+                  className="group flex cursor-pointer flex-col gap-3 px-5 py-4 transition-colors hover:bg-[var(--surface-strong)] sm:flex-row sm:items-center sm:justify-between"
                 >
                   {/* Cliente + veículo */}
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
                     {/* Avatar */}
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">
                       {reg.client.name.slice(0, 2).toUpperCase()}
@@ -319,7 +325,7 @@ export default function DashboardPage() {
 
                     <div className="min-w-0">
                       <p className="font-semibold text-[var(--foreground)] truncate">
-                        {reg.client.name}
+                        {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--muted)]">
                         <span className="font-mono font-semibold text-[var(--foreground)]">

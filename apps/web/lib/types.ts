@@ -48,6 +48,7 @@ export interface AuthSession {
 export interface ClientOption {
   id: string;
   name: string;
+  company: string | null;
   cpf: string;
   phone: string;
 }
@@ -57,11 +58,15 @@ export interface VehicleOption {
   clientId: string;
   plate: string;
   brandModel: string | null;
+  color: string | null;
+  category: string | null;
+  photoUrl: string | null;
 }
 
 export interface ClientRecord {
   id: string;
   name: string;
+  company: string | null;
   phone: string;
   cpf: string;
   photoUrl: string | null;
@@ -96,18 +101,22 @@ export interface RegistrationRecord {
   id: string;
   clientId: string;
   vehicleId: string;
+  vehicle2Id: string | null;
   cardNumber: string | null;
   trSl: string | null;
   status: "ACTIVE" | "INACTIVE" | "BLOCKED";
   observations: string | null;
+  declarationUrl: string | null;
   createdAt: string;
   updatedAt: string;
   client: ClientOption;
   vehicle: VehicleOption;
+  vehicle2: VehicleOption | null;
 }
 
 export interface ClientPayload {
   name: string;
+  company?: string;
   phone: string;
   cpf: string;
   photoUrl?: string;
@@ -126,13 +135,55 @@ export interface VehiclePayload {
 export interface RegistrationPayload {
   clientId: string;
   vehicleId: string;
+  vehicle2Id?: string | null;
   cardNumber?: string;
   trSl?: string;
   status?: "ACTIVE" | "INACTIVE" | "BLOCKED";
   observations?: string;
+  declarationUrl?: string | null;
 }
 
 export interface LoginPayload {
   email: string;
   password: string;
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  currentPassword?: string;
+  newPassword?: string;
+}
+
+export interface LicensePayment {
+  id: string;
+  status: "PENDING" | "CONFIRMED" | "OVERDUE" | "CANCELLED";
+  method: "PIX" | "BOLETO";
+  amount: number;
+  daysAdded: number;
+  pixQrCode: string | null;
+  pixCopyPaste: string | null;
+  boletoUrl: string | null;
+  dueDate: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface LicenseRecord {
+  id: string;
+  status: "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
+  expiresAt: string;
+  daysRemaining: number;
+  holderName: string | null;
+  holderCpf: string | null;
+  holderEmail: string | null;
+  price: number;
+  daysPerPayment: number;
+  payments: LicensePayment[];
+}
+
+export interface CreatePaymentPayload {
+  holderName: string;
+  holderCpf: string;
+  holderEmail: string;
+  method?: "PIX" | "BOLETO";
 }

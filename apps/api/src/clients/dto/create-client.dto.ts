@@ -6,6 +6,11 @@ export class CreateClientDto {
   @MaxLength(160)
   name!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  company?: string;
+
   @IsString()
   @MinLength(10)
   @MaxLength(20)

@@ -256,6 +256,7 @@ export class ClientsService {
     return {
       name,
       nameNormalized: normalizeForSearch(name),
+      company: nullableTrim(dto.company),
       phone,
       phoneNormalized: normalizeDigits(phone),
       cpf: formatCpf(cpfDigits),
@@ -295,6 +296,10 @@ export class ClientsService {
       const cpfDigits = normalizeDigits(dto.cpf);
       data.cpf = formatCpf(cpfDigits);
       data.cpfDigits = cpfDigits;
+    }
+
+    if (dto.company !== undefined) {
+      data.company = nullableTrim(dto.company);
     }
 
     if (dto.photoUrl !== undefined) {

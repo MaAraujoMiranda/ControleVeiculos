@@ -117,6 +117,19 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
   );
 }
 
+/* ── Cabeçalho de seção ─────────────────────────────────────── */
+
+function SectionHead({ number, label }: { number: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3">
+      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white">
+        {number}
+      </div>
+      <p className="text-sm font-semibold text-[var(--foreground)]">{label}</p>
+    </div>
+  );
+}
+
 /* ── Página ──────────────────────────────────────────────────── */
 
 export default function ViewRegistrationPage() {
@@ -126,6 +139,7 @@ export default function ViewRegistrationPage() {
   const [reg, setReg] = useState<RegistrationRecord | null>(null);
   const [client, setClient] = useState<ClientRecord | null>(null);
   const [vehicle, setVehicle] = useState<VehicleRecord | null>(null);
+  const [vehicle2, setVehicle2] = useState<VehicleRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
@@ -134,13 +148,18 @@ export default function ViewRegistrationPage() {
     void (async () => {
       try {
         const registration = await api.getRegistration(id);
-        const [fullClient, fullVehicle] = await Promise.all([
+        const promises: Promise<unknown>[] = [
           api.getClient(registration.clientId),
           api.getVehicle(registration.vehicleId),
-        ]);
+        ];
+        if (registration.vehicle2Id) {
+          promises.push(api.getVehicle(registration.vehicle2Id));
+        }
+        const [fullClient, fullVehicle, fullVehicle2] = await Promise.all(promises) as any[];
         setReg(registration);
         setClient(fullClient);
         setVehicle(fullVehicle);
+        if (fullVehicle2) setVehicle2(fullVehicle2);
       } catch (err) {
         setError(getErrorMessage(err));
       } finally {
@@ -174,6 +193,7 @@ export default function ViewRegistrationPage() {
   if (!reg || !client || !vehicle) return null;
 
   const clientInitials = client.name.trim().split(/\s+/).slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+  const displayName = client.company ? `${client.name} — ${client.company}` : client.name;
 
   return (
     <>
@@ -199,7 +219,7 @@ export default function ViewRegistrationPage() {
               className="text-xl font-bold text-[var(--foreground)] sm:text-2xl"
               style={{ fontFamily: "var(--font-display)" }}
             >
-              {client.name}
+              {displayName}
             </h1>
             <p className="mt-0.5 text-sm text-[var(--muted)]">
               Cadastro completo · atualizado em {formatDateTime(reg.updatedAt)}
@@ -220,10 +240,7 @@ export default function ViewRegistrationPage() {
         <div className="grid gap-5 lg:grid-cols-2">
           {/* ── Cliente ── */}
           <div className="app-panel space-y-5">
-            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white">1</div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">Dados do cliente</p>
-            </div>
+            <SectionHead number="1" label="Dados do cliente" />
 
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex justify-center sm:justify-start">
@@ -231,6 +248,7 @@ export default function ViewRegistrationPage() {
               </div>
               <div className="min-w-0 flex-1 space-y-3">
                 <InfoRow label="Nome completo" value={client.name} />
+                {client.company && <InfoRow label="Empresa" value={client.company} />}
                 <div className="grid grid-cols-2 gap-3">
                   <InfoRow label="CPF" value={client.cpf} />
                   <InfoRow label="Telefone" value={client.phone} />
@@ -256,12 +274,9 @@ export default function ViewRegistrationPage() {
             </div>
           </div>
 
-          {/* ── Veículo ── */}
+          {/* ── Veículo 1 ── */}
           <div className="app-panel space-y-5">
-            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white">2</div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">Dados do veículo</p>
-            </div>
+            <SectionHead number="2" label={vehicle2 ? "Veículo 1" : "Dados do veículo"} />
 
             <div className="flex flex-col gap-4 sm:flex-row">
               <div className="flex justify-center sm:justify-start">
@@ -278,12 +293,30 @@ export default function ViewRegistrationPage() {
             </div>
           </div>
 
-          {/* ── Acesso ── */}
-          <div className="app-panel space-y-5 lg:col-span-2">
-            <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3">
-              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white">3</div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">Dados de acesso</p>
+          {/* ── Veículo 2 (se existir) ── */}
+          {vehicle2 && (
+            <div className="app-panel space-y-5">
+              <SectionHead number="2b" label="Veículo 2" />
+
+              <div className="flex flex-col gap-4 sm:flex-row">
+                <div className="flex justify-center sm:justify-start">
+                  <Photo src={vehicle2.photoUrl} alt={vehicle2.plate} onZoom={setLightboxSrc} />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <InfoRow label="Placa" value={vehicle2.plate} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <InfoRow label="Marca / Modelo" value={vehicle2.brandModel} />
+                    <InfoRow label="Cor" value={vehicle2.color} />
+                  </div>
+                  <InfoRow label="Categoria" value={vehicle2.category} />
+                </div>
+              </div>
             </div>
+          )}
+
+          {/* ── Acesso ── */}
+          <div className={`app-panel space-y-5 ${vehicle2 ? "" : "lg:col-span-2"}`}>
+            <SectionHead number="3" label="Dados de acesso" />
 
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <InfoRow label="Número do cartão" value={reg.cardNumber} />
@@ -304,6 +337,25 @@ export default function ViewRegistrationPage() {
               </div>
             )}
           </div>
+
+          {/* ── Declaração assinada ── */}
+          {reg.declarationUrl && (
+            <div className="app-panel space-y-5 lg:col-span-2">
+              <SectionHead number="4" label="Declaração assinada" />
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
+                <Photo
+                  src={reg.declarationUrl}
+                  alt="Declaração assinada"
+                  onZoom={setLightboxSrc}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm text-[var(--muted)]">
+                    Clique na imagem para ampliar e visualizar a declaração assinada pelo cliente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

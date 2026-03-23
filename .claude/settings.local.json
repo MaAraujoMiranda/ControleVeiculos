@@ -6,7 +6,23 @@
       "Bash(npx prisma:*)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(ssh -o StrictHostKeyChecking=no root@195.200.4.79 \"echo ''Conectado com sucesso''\")",
+      "Read(//c/APPCHAMADO/**)",
+      "Read(//c/APPCHAMADO//**)",
+      "Read(//c//**)",
+      "Bash(find /c/APPCHAMADO -name *.pem -o -name id_rsa -o -name *.key -o -name *.ppk)",
+      "Read(//c/Users/teteu/.ssh/**)",
+      "Bash(find /c/APPCHAMADO -name .env* -o -name *.md)",
+      "Read(//c/Users/teteu/.claude/projects//**)",
+      "Read(//c/Users/teteu/.claude/**)",
+      "Bash(python -c \":*)",
+      "Bash(grep -E \"\\\\.\\(tsx?|jsx?\\)$\")",
+      "Bash(find /c/Users/teteu/Documents/DocFlow/apps/web/src/app -type f -name *subscription* -o -name *payment*)",
+      "Bash(ls -la \"/c/Users/teteu/Documents/DocFlow/apps/web/src/app/\\(dashboard\\)/dashboard/payment\")"
     ]
   }
 }

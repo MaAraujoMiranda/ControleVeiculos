@@ -72,6 +72,7 @@ export class RegistrationsService {
         include: {
           client: true,
           vehicle: true,
+          vehicle2: true,
         },
       }),
       this.prisma.registration.count({ where }),
@@ -89,6 +90,9 @@ export class RegistrationsService {
 
   async createRegistration(dto: CreateRegistrationDto) {
     await this.ensureClientAndVehicleLink(dto.clientId, dto.vehicleId);
+    if (dto.vehicle2Id) {
+      await this.ensureClientAndVehicleLink(dto.clientId, dto.vehicle2Id);
+    }
     const payload = this.buildCreateRegistrationData(dto);
 
     try {
@@ -111,7 +115,8 @@ export class RegistrationsService {
           where: { id: created.id },
           include: {
             client: true,
-            vehicle: true,
+            vehicle: { include: { client: true } },
+            vehicle2: true,
           },
         });
       });
@@ -124,8 +129,12 @@ export class RegistrationsService {
     const current = await this.findActiveRegistrationOrThrow(id);
     const nextClientId = dto.clientId ?? current.clientId;
     const nextVehicleId = dto.vehicleId ?? current.vehicleId;
+    const nextVehicle2Id = dto.vehicle2Id !== undefined ? dto.vehicle2Id : (current as any).vehicle2Id;
 
     await this.ensureClientAndVehicleLink(nextClientId, nextVehicleId);
+    if (nextVehicle2Id) {
+      await this.ensureClientAndVehicleLink(nextClientId, nextVehicle2Id);
+    }
     const payload = this.buildUpdateRegistrationData(dto);
 
     try {
@@ -150,7 +159,8 @@ export class RegistrationsService {
           where: { id },
           include: {
             client: true,
-            vehicle: true,
+            vehicle: { include: { client: true } },
+            vehicle2: true,
           },
         });
       });
@@ -194,7 +204,8 @@ export class RegistrationsService {
       },
       include: {
         client: true,
-        vehicle: true,
+        vehicle: { include: { client: true } },
+        vehicle2: true,
       },
     });
 
@@ -240,9 +251,11 @@ export class RegistrationsService {
     return {
       clientId: dto.clientId,
       vehicleId: dto.vehicleId,
+      vehicle2Id: dto.vehicle2Id ?? null,
       cardNumber: normalizeCardNumber(dto.cardNumber),
       trSl: normalizeTrSl(dto.trSl),
       observations: nullableTrim(dto.observations),
+      declarationUrl: nullableTrim(dto.declarationUrl),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
     } satisfies Prisma.RegistrationUncheckedCreateInput;
   }
@@ -272,6 +285,14 @@ export class RegistrationsService {
 
     if (dto.observations !== undefined) {
       data.observations = nullableTrim(dto.observations);
+    }
+
+    if (dto.declarationUrl !== undefined) {
+      data.declarationUrl = nullableTrim(dto.declarationUrl);
+    }
+
+    if (dto.vehicle2Id !== undefined) {
+      data.vehicle2Id = dto.vehicle2Id || null;
     }
 
     return data;

@@ -3,11 +3,15 @@ import type {
   ClientPayload,
   ClientRecord,
   Configuration,
+  CreatePaymentPayload,
   HealthResponse,
+  LicensePayment,
+  LicenseRecord,
   LoginPayload,
   ListResponse,
   RegistrationPayload,
   RegistrationRecord,
+  UpdateProfilePayload,
   VehiclePayload,
   VehicleRecord,
 } from "./types";
@@ -111,6 +115,13 @@ export const api = {
     });
   },
 
+  updateProfile(payload: UpdateProfilePayload) {
+    return apiRequest<{ id: string; name: string; email: string; role: string }>("/users/me", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
   getHealth() {
     return apiRequest<HealthResponse>("/health");
   },
@@ -123,6 +134,23 @@ export const api = {
     return apiRequest<Configuration>("/configuration", {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  },
+
+  getLicense() {
+    return apiRequest<LicenseRecord>("/license");
+  },
+
+  createLicensePayment(payload: CreatePaymentPayload) {
+    return apiRequest<LicensePayment>("/license/payment", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  syncLicensePayment(paymentId: string) {
+    return apiRequest<LicenseRecord>(`/license/payment/${paymentId}/sync`, {
+      method: "POST",
     });
   },
 

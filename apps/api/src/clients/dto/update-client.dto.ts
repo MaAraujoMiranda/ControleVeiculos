@@ -9,6 +9,11 @@ export class UpdateClientDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(160)
+  company?: string;
+
+  @IsOptional()
+  @IsString()
   @MinLength(10)
   @MaxLength(20)
   phone?: string;

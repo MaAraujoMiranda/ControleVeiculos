@@ -111,6 +111,45 @@ function IconGear() {
   );
 }
 
+function IconUser() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 17 17"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="8.5" cy="5.5" r="2.75" />
+      <path d="M2 14.5v-.5a6.5 6.5 0 0113 0v.5" />
+    </svg>
+  );
+}
+
+function IconLicense() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 17 17"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="1.5" y="3" width="14" height="11" rx="2" />
+      <path d="M5 8h7M5 11h4" />
+      <path d="M5 5.5h2" />
+    </svg>
+  );
+}
+
 function IconLogout() {
   return (
     <svg
@@ -133,9 +172,11 @@ function IconLogout() {
 /* ── Nav items ──────────────────────────────────────────────── */
 
 const navItems = [
-  { href: "/", label: "Painel", icon: IconGrid },
-  { href: "/registrations", label: "Cadastros", icon: IconCard },
-  { href: "/settings", label: "Configurações", icon: IconGear },
+  { href: "/", label: "Painel", shortLabel: "Painel", icon: IconGrid },
+  { href: "/registrations", label: "Cadastros", shortLabel: "Cadastros", icon: IconCard },
+  { href: "/settings", label: "Configurações", shortLabel: "Config.", icon: IconGear },
+  { href: "/profile", label: "Meu Perfil", shortLabel: "Perfil", icon: IconUser },
+  { href: "/subscription", label: "Minha Assinatura", shortLabel: "Licença", icon: IconLicense },
 ];
 
 /* ── Component ──────────────────────────────────────────────── */
@@ -228,7 +269,42 @@ export function AppShell({ children }: { children: ReactNode }) {
             Navegação
           </p>
 
-          {navItems.map((item) => {
+          {navItems.slice(0, 3).map((item) => {
+            const active = pathname === item.href;
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                    : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
+                }`}
+              >
+                <span
+                  className={`transition-colors ${
+                    active
+                      ? "text-[var(--accent)]"
+                      : "text-[var(--subtle)] group-hover:text-[var(--muted)]"
+                  }`}
+                >
+                  <Icon />
+                </span>
+                {item.label}
+                {active && (
+                  <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
+                )}
+              </Link>
+            );
+          })}
+
+          <p className="mb-2 mt-4 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--subtle)]">
+            Conta
+          </p>
+
+          {navItems.slice(3).map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
 
@@ -313,7 +389,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Mobile bottom nav ── */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)] px-1 py-2 lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)] px-0.5 py-1.5 lg:hidden">
         {navItems.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
@@ -322,7 +398,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 transition-colors ${
+              className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${
                 active
                   ? "text-[var(--accent)]"
                   : "text-[var(--muted)] hover:text-[var(--foreground)]"
@@ -330,7 +406,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <Icon />
               <span className="text-[10px] font-medium leading-none">
-                {item.label}
+                {item.shortLabel}
               </span>
             </Link>
           );
