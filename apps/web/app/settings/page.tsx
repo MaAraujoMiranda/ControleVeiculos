@@ -2,7 +2,6 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { api, getErrorMessage } from "../../lib/api";
-import { formatDateTime } from "../../lib/format";
 import type { Configuration, HealthResponse } from "../../lib/types";
 
 export default function SettingsPage() {
@@ -14,6 +13,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [allowMultipleVehicles, setAllowMultipleVehicles] = useState(false);
   const [sessionDurationDays, setSessionDurationDays] = useState("7");
+  const apiOnline = health?.status?.toLowerCase() === "ok";
+  const databaseOnline = health?.database.status === "connected";
 
   async function loadSettings() {
     setLoading(true);
@@ -213,36 +214,30 @@ export default function SettingsPage() {
                   API
                 </p>
                 <p className="mt-2 text-lg font-semibold">
-                  {health?.status ?? "Carregando..."}
+                  {loading
+                    ? "Carregando..."
+                    : apiOnline
+                      ? "Online"
+                      : "Indisponivel"}
+                </p>
+              </div>
+
+              <div className="rounded-[1.5rem] border border-[var(--border)] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
+                  Banco
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {loading
+                    ? "Carregando..."
+                    : databaseOnline
+                      ? "Conectado"
+                      : "Desconectado"}
                 </p>
                 <p className="mt-1 text-sm text-[var(--muted)]">
-                  Banco: {health?.database.status ?? "-"}
+                  {loading ? "-" : health?.database.status ?? "-"}
                 </p>
               </div>
             </div>
-          </article>
-
-          <article className="app-panel app-rise-in">
-            <p
-              className="text-2xl font-semibold"
-              style={{ fontFamily: "var(--font-display)" }}
-            >
-              Diagnostico rapido
-            </p>
-            <dl className="mt-4 grid gap-3 text-sm">
-              <div className="flex flex-col gap-1 rounded-[1.25rem] border border-[var(--border)] px-4 py-3">
-                <dt className="text-[var(--muted)]">API base</dt>
-                <dd className="min-w-0 truncate font-mono text-xs">
-                  {process.env.NEXT_PUBLIC_API_URL}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4 rounded-[1.25rem] border border-[var(--border)] px-4 py-3">
-                <dt className="text-[var(--muted)]">Ultimo ping</dt>
-                <dd className="font-semibold">
-                  {formatDateTime(health?.timestamp)}
-                </dd>
-              </div>
-            </dl>
           </article>
         </div>
       </section>

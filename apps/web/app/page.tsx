@@ -178,7 +178,7 @@ export default function DashboardPage() {
             Painel
           </h1>
           <p className="mt-0.5 text-sm text-[var(--muted)]">
-            Busque qualquer cliente, placa ou cartão abaixo.
+            Busque por cliente, empresa, placa (incluindo 2º veículo), cartão ou TR SL.
           </p>
         </div>
 
@@ -217,7 +217,7 @@ export default function DashboardPage() {
               ? "0 0 0 3px var(--accent-soft)"
               : "0 1px 3px rgba(0,0,0,0.05)",
           }}
-          placeholder="Buscar por nome, placa, cartão, CPF ou TR SL..."
+          placeholder="Buscar por nome, empresa, placa, cartão, CPF ou TR SL..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
@@ -289,7 +289,7 @@ export default function DashboardPage() {
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
                 {isSearching
-                  ? `Tente buscar por outro nome, placa ou cartão.`
+                  ? `Tente buscar por outro nome, empresa, placa ou cartão.`
                   : `Clique em "+ Novo cadastro" para começar.`}
               </p>
             </div>
@@ -331,6 +331,11 @@ export default function DashboardPage() {
                         <span className="font-mono font-semibold text-[var(--foreground)]">
                           {reg.vehicle.plate}
                         </span>
+                        {reg.vehicle2?.plate && (
+                          <span className="font-mono font-semibold text-[var(--foreground)]">
+                            {reg.vehicle2.plate}
+                          </span>
+                        )}
                         {reg.vehicle.brandModel && (
                           <span>{reg.vehicle.brandModel}</span>
                         )}

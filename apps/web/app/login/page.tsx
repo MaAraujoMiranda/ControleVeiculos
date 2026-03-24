@@ -2,7 +2,8 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getErrorMessage } from "../../lib/api";
+import { api, getErrorMessage } from "../../lib/api";
+import { isLicenseBlocked } from "../../lib/license";
 import { useAuth } from "../../components/auth-provider";
 
 const features = [
@@ -31,11 +32,21 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function redirectAfterAuth() {
+    try {
+      const license = await api.getLicense();
+      router.replace(isLicenseBlocked(license) ? "/subscription" : "/");
+    } catch {
+      // Se nao conseguir avaliar licenca, mantém fluxo seguro na assinatura.
+      router.replace("/subscription");
+    }
+  }
+
   useEffect(() => {
     if (!loading && session) {
-      router.replace("/");
+      void redirectAfterAuth();
     }
-  }, [loading, router, session]);
+  }, [loading, session]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,7 +55,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
-      router.replace("/");
+      await redirectAfterAuth();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {

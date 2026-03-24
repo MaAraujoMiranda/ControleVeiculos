@@ -46,13 +46,29 @@ export class RegistrationsService {
               { trSl: { contains: q } },
               {
                 client: {
-                  nameNormalized: {
-                    contains: normalizedQuery ?? undefined,
-                  },
+                  OR: [
+                    {
+                      nameNormalized: {
+                        contains: normalizedQuery ?? undefined,
+                      },
+                    },
+                    {
+                      company: {
+                        contains: q,
+                      },
+                    },
+                  ],
                 },
               },
               {
                 vehicle: {
+                  plateNormalized: {
+                    contains: plateQuery ?? undefined,
+                  },
+                },
+              },
+              {
+                vehicle2: {
                   plateNormalized: {
                     contains: plateQuery ?? undefined,
                   },

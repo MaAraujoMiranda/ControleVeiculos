@@ -24,15 +24,10 @@ function StatusChip({ status }: { status: string }) {
   return <span className={`app-badge ${cls}`}>{label}</span>;
 }
 
-function PaymentStatusChip({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    PENDING: { label: "Aguardando", cls: "text-[var(--muted)]" },
-    CONFIRMED: { label: "Confirmado", cls: "text-[var(--success)]" },
-    OVERDUE: { label: "Vencido", cls: "text-[var(--danger)]" },
-    CANCELLED: { label: "Cancelado", cls: "text-[var(--muted)]" },
-  };
-  const { label, cls } = map[status] ?? { label: status, cls: "" };
-  return <span className={`text-sm font-medium ${cls}`}>{label}</span>;
+function dispatchLicenseUpdated(license: LicenseRecord | null) {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(new CustomEvent("license:updated", { detail: license }));
 }
 
 export default function SubscriptionPage() {
@@ -55,11 +50,9 @@ export default function SubscriptionPage() {
     try {
       const lic = await api.getLicense();
       setLicense(lic);
-      if (lic.holderName) setHolderName(lic.holderName);
-      if (lic.holderCpf) setHolderCpf(maskCpf(lic.holderCpf));
-      if (lic.holderEmail) setHolderEmail(lic.holderEmail);
       const pending = lic.payments.find((p) => p.status === "PENDING");
       setPendingPayment(pending ?? null);
+      dispatchLicenseUpdated(lic);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -92,6 +85,7 @@ export default function SubscriptionPage() {
       setPendingPayment(still ?? null);
       if (!still && !silent) setSuccess("Pagamento confirmado! Licença ativada.");
       if (!still && pollRef.current) clearInterval(pollRef.current);
+      dispatchLicenseUpdated(updated);
     } catch {
       /* silencia erros de polling */
     } finally {
@@ -128,13 +122,6 @@ export default function SubscriptionPage() {
     );
   }
 
-  const daysColor =
-    !license || license.daysRemaining === 0
-      ? "text-[var(--danger)]"
-      : license.daysRemaining <= 7
-        ? "text-[var(--warning,#d97706)]"
-        : "text-[var(--success)]";
-
   return (
     <div className="space-y-6 py-2">
       {/* Cabeçalho */}
@@ -166,13 +153,9 @@ export default function SubscriptionPage() {
               <p className="text-lg font-semibold text-[var(--foreground)]" style={{ fontFamily: "var(--font-display)" }}>
                 Situação atual
               </p>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-[var(--border)] px-4 py-4 text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Dias restantes</p>
-                  <p className={`mt-1 text-3xl font-bold ${daysColor}`}>{license.daysRemaining}</p>
-                </div>
-                <div className="rounded-2xl border border-[var(--border)] px-4 py-4 text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Expira em</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Válida até</p>
                   <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{formatDateTime(license.expiresAt)}</p>
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] px-4 py-4 text-center">
@@ -180,7 +163,6 @@ export default function SubscriptionPage() {
                   <p className="mt-1 text-2xl font-bold text-[var(--foreground)]">
                     R$ {license.price.toFixed(2).replace(".", ",")}
                   </p>
-                  <p className="text-[10px] text-[var(--muted)]">por {license.daysPerPayment} dias</p>
                 </div>
               </div>
             </div>
@@ -259,25 +241,6 @@ export default function SubscriptionPage() {
             </div>
           )}
 
-          {/* Histórico de pagamentos */}
-          {license && license.payments.length > 0 && (
-            <div className="app-panel space-y-3">
-              <p className="text-sm font-semibold text-[var(--foreground)]">Histórico de pagamentos</p>
-              <div className="space-y-2">
-                {license.payments.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3 py-2.5">
-                    <div>
-                      <p className="text-sm font-medium text-[var(--foreground)]">
-                        R$ {p.amount.toFixed(2).replace(".", ",")} · {p.method}
-                      </p>
-                      <p className="text-xs text-[var(--muted)]">{formatDateTime(p.createdAt)}</p>
-                    </div>
-                    <PaymentStatusChip status={p.status} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Formulário de renovação */}
@@ -288,8 +251,7 @@ export default function SubscriptionPage() {
                 Renovar licença
               </p>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                Adiciona {license?.daysPerPayment ?? 30} dias à sua licença por{" "}
-                R$ {(license?.price ?? 49.9).toFixed(2).replace(".", ",")}.
+                Renove sua licença por R$ {(license?.price ?? 350).toFixed(2).replace(".", ",")}.
               </p>
             </div>
 

@@ -1202,14 +1202,14 @@ export default function RegistrationsPage() {
                 Cadastros
               </p>
               <p className="text-sm text-[var(--muted)]">
-                Busca por nome, placa, cartão ou TR SL.
+                Busca por nome, empresa, placa (incluindo 2º veículo), cartão ou TR SL.
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 className="app-input mt-0 w-full"
-                placeholder="Buscar..."
+                placeholder="Buscar por nome, empresa, placa, cartão ou TR SL..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -1268,6 +1268,11 @@ export default function RegistrationsPage() {
                           </div>
                           <div>
                             <p className="font-semibold">{reg.client.name}</p>
+                            {reg.client.company && (
+                              <p className="text-xs text-[var(--muted)]">
+                                {reg.client.company}
+                              </p>
+                            )}
                             <p className="text-xs text-[var(--muted)]">
                               {reg.client.cpf}
                             </p>
@@ -1279,6 +1284,11 @@ export default function RegistrationsPage() {
                         <p className="font-mono font-semibold">
                           {reg.vehicle.plate}
                         </p>
+                        {reg.vehicle2?.plate && (
+                          <p className="font-mono text-xs text-[var(--muted)]">
+                            {reg.vehicle2.plate}
+                          </p>
+                        )}
                         <p className="text-xs text-[var(--muted)]">
                           {formatDateTime(reg.updatedAt)}
                         </p>

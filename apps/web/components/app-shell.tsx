@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
-import { getErrorMessage } from "../lib/api";
+import { api, getErrorMessage } from "../lib/api";
+import { isLicenseBlocked } from "../lib/license";
+import type { LicenseRecord } from "../lib/types";
 import { useAuth } from "./auth-provider";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -186,7 +188,16 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { session, loading, logout } = useAuth();
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [licenseState, setLicenseState] = useState<
+    Pick<LicenseRecord, "status" | "expiresAt"> | null
+  >(null);
+  const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseChecked, setLicenseChecked] = useState(false);
   const isLoginPage = pathname === "/login";
+  const isSubscriptionPage = pathname === "/subscription";
+  const licenseBlocked = isLicenseBlocked(licenseState);
+  const navigationLocked =
+    (!licenseChecked && !isLoginPage && !!session) || licenseBlocked;
 
   const userRoleLabel =
     session?.user.role === "ADMIN"
@@ -205,10 +216,106 @@ export function AppShell({ children }: { children: ReactNode }) {
         .toUpperCase()
     : "??";
 
+  async function refreshLicenseState() {
+    if (!session || isLoginPage) return;
+
+    setLicenseLoading(true);
+    try {
+      const license = await api.getLicense();
+      setLicenseState({
+        status: license.status,
+        expiresAt: license.expiresAt,
+      });
+    } catch {
+      setLicenseState(null);
+    } finally {
+      setLicenseChecked(true);
+      setLicenseLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!loading && !session && !isLoginPage) router.replace("/login");
-    if (!loading && session && isLoginPage) router.replace("/");
   }, [isLoginPage, loading, router, session]);
+
+  useEffect(() => {
+    if (!loading && session) {
+      void refreshLicenseState();
+      return;
+    }
+
+    if (!loading && !session) {
+      setLicenseChecked(false);
+      setLicenseState(null);
+      setLicenseLoading(false);
+    }
+  }, [loading, session]);
+
+  useEffect(() => {
+    if (!loading && session && isLoginPage && licenseChecked && !licenseLoading) {
+      router.replace(licenseBlocked ? "/subscription" : "/");
+    }
+  }, [
+    isLoginPage,
+    licenseBlocked,
+    licenseChecked,
+    licenseLoading,
+    loading,
+    router,
+    session,
+  ]);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      session &&
+      !isLoginPage &&
+      licenseChecked &&
+      !licenseLoading &&
+      licenseBlocked &&
+      !isSubscriptionPage
+    ) {
+      router.replace("/subscription");
+    }
+  }, [
+    isLoginPage,
+    isSubscriptionPage,
+    licenseBlocked,
+    licenseChecked,
+    licenseLoading,
+    loading,
+    router,
+    session,
+  ]);
+
+  useEffect(() => {
+    if (!session || isLoginPage) return;
+
+    function handleLicenseUpdated(event: Event) {
+      const detail = (event as CustomEvent<LicenseRecord | null>).detail;
+      if (detail?.status && detail?.expiresAt) {
+        setLicenseState({
+          status: detail.status,
+          expiresAt: detail.expiresAt,
+        });
+        return;
+      }
+
+      void refreshLicenseState();
+    }
+
+    window.addEventListener(
+      "license:updated",
+      handleLicenseUpdated as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "license:updated",
+        handleLicenseUpdated as EventListener,
+      );
+    };
+  }, [isLoginPage, session]);
 
   async function handleLogout() {
     setLogoutError(null);
@@ -233,6 +340,27 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div>
             <p className="font-semibold text-[var(--foreground)]">
               Validando sessão
+            </p>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Aguarde um momento...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!licenseChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
+        <div className="app-panel app-rise-in flex max-w-xs flex-col items-center gap-4 p-8 text-center">
+          <div
+            className="h-8 w-8 rounded-full border-2 border-[var(--accent)] border-t-transparent"
+            style={{ animation: "spin 0.75s linear infinite" }}
+          />
+          <div>
+            <p className="font-semibold text-[var(--foreground)]">
+              Validando licença
             </p>
             <p className="mt-1 text-sm text-[var(--muted)]">
               Aguarde um momento...
@@ -272,17 +400,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navItems.slice(0, 3).map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
+            const blockedItem = navigationLocked && item.href !== "/subscription";
+            const className = `group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
+              active
+                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
+            }`;
+
+            if (blockedItem) {
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled
+                  className={`${className} cursor-not-allowed opacity-50`}
+                >
+                  <span className="text-[var(--subtle)]">
+                    <Icon />
+                  </span>
+                  {item.label}
+                </button>
+              );
+            }
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
-                  active
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-                }`}
-              >
+              <Link key={item.href} href={item.href} className={className}>
                 <span
                   className={`transition-colors ${
                     active
@@ -307,17 +449,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           {navItems.slice(3).map((item) => {
             const active = pathname === item.href;
             const Icon = item.icon;
+            const blockedItem = navigationLocked && item.href !== "/subscription";
+            const className = `group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
+              active
+                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
+            }`;
+
+            if (blockedItem) {
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled
+                  className={`${className} cursor-not-allowed opacity-50`}
+                >
+                  <span className="text-[var(--subtle)]">
+                    <Icon />
+                  </span>
+                  {item.label}
+                </button>
+              );
+            }
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
-                  active
-                    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-                }`}
-              >
+              <Link key={item.href} href={item.href} className={className}>
                 <span
                   className={`transition-colors ${
                     active
@@ -393,17 +549,31 @@ export function AppShell({ children }: { children: ReactNode }) {
         {navItems.map((item) => {
           const active = pathname === item.href;
           const Icon = item.icon;
+          const blockedItem = navigationLocked && item.href !== "/subscription";
+          const className = `flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${
+            active
+              ? "text-[var(--accent)]"
+              : "text-[var(--muted)] hover:text-[var(--foreground)]"
+          }`;
+
+          if (blockedItem) {
+            return (
+              <button
+                key={item.href}
+                type="button"
+                disabled
+                className={`${className} cursor-not-allowed opacity-50`}
+              >
+                <Icon />
+                <span className="text-[10px] font-medium leading-none">
+                  {item.shortLabel}
+                </span>
+              </button>
+            );
+          }
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${
-                active
-                  ? "text-[var(--accent)]"
-                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
-            >
+            <Link key={item.href} href={item.href} className={className}>
               <Icon />
               <span className="text-[10px] font-medium leading-none">
                 {item.shortLabel}
@@ -416,6 +586,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Main content ── */}
       <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden lg:pl-64">
         <div className="flex-1 px-4 pb-24 pt-20 sm:px-6 lg:px-8 lg:pb-8 lg:pt-6 app-rise-in max-w-400 w-full mx-auto">
+          {licenseBlocked && (
+            <div className="mb-4 rounded-xl border border-[var(--danger)]/20 bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
+              Licenca vencida. O acesso esta temporariamente bloqueado. Renove em{" "}
+              <strong>Minha Assinatura</strong> para liberar o sistema.
+            </div>
+          )}
           {children}
         </div>
       </main>

@@ -8,7 +8,7 @@ import { PrismaService } from '../database/prisma.service';
 import { AsaasService } from './asaas.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 
-const LICENSE_PRICE = 49.9;
+const LICENSE_PRICE = 350;
 const LICENSE_DAYS = 30;
 
 @Injectable()
