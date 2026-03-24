@@ -1264,10 +1264,19 @@ export default function RegistrationsPage() {
                   records.map((reg) => (
                     <tr
                       key={reg.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => router.push(`/registrations/${reg.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(`/registrations/${reg.id}`);
+                        }
+                      }}
                       className={
                         editingReg?.id === reg.id
-                          ? "!bg-[var(--accent-soft)]"
-                          : ""
+                          ? "!bg-[var(--accent-soft)] cursor-pointer"
+                          : "cursor-pointer hover:bg-[var(--surface-strong)]"
                       }
                     >
                       <td>
