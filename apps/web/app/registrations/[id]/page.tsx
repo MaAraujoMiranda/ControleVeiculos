@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, getErrorMessage } from "../../../lib/api";
 import { formatDateTime, formatStatusLabel } from "../../../lib/format";
 import type { ClientRecord, RegistrationRecord, VehicleRecord } from "../../../lib/types";
@@ -84,15 +85,29 @@ function Photo({
 /* ── Lightbox ────────────────────────────────────────────────── */
 
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
+
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
   }, [onClose]);
 
-  return (
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
       onClick={onClose}
@@ -113,7 +128,8 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
         className="max-h-[90vh] max-w-[90vw] rounded-xl object-contain shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
 
