@@ -27,6 +27,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatRegistrationVehicles(reg: RegistrationRecord) {
+  const vehicle1 = [reg.vehicle.plate, reg.vehicle.brandModel]
+    .filter(Boolean)
+    .join(" ");
+  const vehicle2 = reg.vehicle2
+    ? [reg.vehicle2.plate, reg.vehicle2.brandModel].filter(Boolean).join(" ")
+    : null;
+
+  return vehicle2 ? `${vehicle1}, ${vehicle2}` : vehicle1;
+}
+
 /* ── Ícone de busca ─────────────────────────────────────────── */
 
 function SearchIcon() {
@@ -327,20 +338,13 @@ export default function DashboardPage() {
                       <p className="font-semibold text-[var(--foreground)] truncate">
                         {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-[var(--muted)]">
+                      <p className="mt-0.5 text-xs text-[var(--muted)]">
                         <span className="font-mono font-semibold text-[var(--foreground)]">
-                          {reg.vehicle.plate}
+                          {formatRegistrationVehicles(reg)}
                         </span>
-                        {reg.vehicle2?.plate && (
-                          <span className="font-mono font-semibold text-[var(--foreground)]">
-                            {reg.vehicle2.plate}
-                          </span>
-                        )}
-                        {reg.vehicle.brandModel && (
-                          <span>{reg.vehicle.brandModel}</span>
-                        )}
-                        <span>{formatDateTime(reg.updatedAt)}</span>
-                      </div>
+                        {" - "}
+                        {formatDateTime(reg.updatedAt)}
+                      </p>
                     </div>
                   </div>
 

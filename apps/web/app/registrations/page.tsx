@@ -213,6 +213,17 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatRegistrationVehicles(reg: RegistrationRecord) {
+  const vehicle1 = [reg.vehicle.plate, reg.vehicle.brandModel]
+    .filter(Boolean)
+    .join(" ");
+  const vehicle2 = reg.vehicle2
+    ? [reg.vehicle2.plate, reg.vehicle2.brandModel].filter(Boolean).join(" ")
+    : null;
+
+  return vehicle2 ? `${vehicle1}, ${vehicle2}` : vehicle1;
+}
+
 /* ── Componente: campos de veículo reutilizável ──────────────── */
 
 function VehicleFormFields({
@@ -1281,15 +1292,11 @@ export default function RegistrationsPage() {
                       </td>
 
                       <td>
-                        <p className="font-mono font-semibold">
-                          {reg.vehicle.plate}
-                        </p>
-                        {reg.vehicle2?.plate && (
-                          <p className="font-mono text-xs text-[var(--muted)]">
-                            {reg.vehicle2.plate}
-                          </p>
-                        )}
                         <p className="text-xs text-[var(--muted)]">
+                          <span className="font-mono font-semibold text-[var(--foreground)]">
+                            {formatRegistrationVehicles(reg)}
+                          </span>
+                          {" - "}
                           {formatDateTime(reg.updatedAt)}
                         </p>
                       </td>
