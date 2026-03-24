@@ -27,15 +27,13 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatRegistrationVehicles(reg: RegistrationRecord) {
-  const vehicle1 = [reg.vehicle.plate, reg.vehicle.brandModel]
-    .filter(Boolean)
-    .join(" ");
-  const vehicle2 = reg.vehicle2
-    ? [reg.vehicle2.plate, reg.vehicle2.brandModel].filter(Boolean).join(" ")
-    : null;
-
-  return vehicle2 ? `${vehicle1}, ${vehicle2}` : vehicle1;
+function getRegistrationVehicles(reg: RegistrationRecord) {
+  return [
+    { plate: reg.vehicle.plate, brandModel: reg.vehicle.brandModel },
+    ...(reg.vehicle2
+      ? [{ plate: reg.vehicle2.plate, brandModel: reg.vehicle2.brandModel }]
+      : []),
+  ];
 }
 
 /* ── Ícone de busca ─────────────────────────────────────────── */
@@ -339,9 +337,15 @@ export default function DashboardPage() {
                         {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
-                        <span className="font-mono font-semibold text-[var(--foreground)]">
-                          {formatRegistrationVehicles(reg)}
-                        </span>
+                        {getRegistrationVehicles(reg).map((vehicle, index) => (
+                          <span key={`${reg.id}-vehicle-${index}`}>
+                            {index > 0 ? ", " : ""}
+                            <span className="font-mono font-semibold text-[var(--foreground)]">
+                              {vehicle.plate}
+                            </span>
+                            {vehicle.brandModel ? ` ${vehicle.brandModel}` : ""}
+                          </span>
+                        ))}
                         {" - "}
                         {formatDateTime(reg.updatedAt)}
                       </p>
