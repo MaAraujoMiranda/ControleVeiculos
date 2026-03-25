@@ -68,6 +68,7 @@ const emptyReg: RegForm = {
 };
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
+const REGISTRATIONS_PAGE_SIZE = 30;
 
 /* ── Máscaras de input ───────────────────────────────────────── */
 
@@ -302,6 +303,7 @@ export default function RegistrationsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -355,8 +357,16 @@ export default function RegistrationsPage() {
       const res = await api.listRegistrations({
         q: deferredSearch,
         status: statusFilter || undefined,
-        pageSize: 30,
+        page,
+        pageSize: REGISTRATIONS_PAGE_SIZE,
       });
+
+      const maxPage = res.meta.pageCount > 0 ? res.meta.pageCount : 1;
+      if (page > maxPage) {
+        setPage(maxPage);
+        return;
+      }
+
       setRecords(res.data);
       setMeta(res.meta);
     } catch (err) {
@@ -368,7 +378,7 @@ export default function RegistrationsPage() {
 
   useEffect(() => {
     void loadRegistrations();
-  }, [deferredSearch, statusFilter]);
+  }, [deferredSearch, page, statusFilter]);
 
   /* Detecta ?edit=ID vindo do dashboard */
   useEffect(() => {
@@ -602,6 +612,17 @@ export default function RegistrationsPage() {
   }
 
   const isEdit = mode === "edit";
+  const recordsStart = meta && meta.total > 0 ? (meta.page - 1) * meta.pageSize + 1 : 0;
+  const recordsEnd = meta && meta.total > 0 ? Math.min(meta.page * meta.pageSize, meta.total) : 0;
+
+  function goToPreviousPage() {
+    setPage((current) => Math.max(1, current - 1));
+  }
+
+  function goToNextPage() {
+    if (!meta?.hasNextPage) return;
+    setPage((current) => current + 1);
+  }
 
   return (
     <div className="space-y-5">
@@ -1220,12 +1241,18 @@ export default function RegistrationsPage() {
                 className="app-input mt-0 w-full"
                 placeholder="Buscar por nome, empresa, placa, cartão ou TR SL..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
               <select
                 className="app-select mt-0 sm:w-40 shrink-0"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setPage(1);
+                }}
               >
                 <option value="">Todos os status</option>
                 {statusOptions.map((s) => (
@@ -1347,6 +1374,40 @@ export default function RegistrationsPage() {
               </tbody>
             </table>
           </div>
+
+          {meta && (
+            <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-[var(--muted)]">
+                {meta.total === 0
+                  ? "Nenhum registro para exibir."
+                  : `Mostrando ${recordsStart} a ${recordsEnd} de ${meta.total} registros`}
+              </p>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="app-button-secondary px-3 py-2 text-xs"
+                  onClick={goToPreviousPage}
+                  disabled={loading || !meta.hasPreviousPage}
+                >
+                  Anterior
+                </button>
+
+                <span className="text-xs font-medium text-[var(--muted)]">
+                  Página {meta.pageCount === 0 ? 0 : meta.page} de {meta.pageCount}
+                </span>
+
+                <button
+                  type="button"
+                  className="app-button-secondary px-3 py-2 text-xs"
+                  onClick={goToNextPage}
+                  disabled={loading || !meta.hasNextPage}
+                >
+                  Próxima
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
