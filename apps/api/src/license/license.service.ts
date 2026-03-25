@@ -41,6 +41,7 @@ export class LicenseService {
       });
     }
 
+    license = await this.syncLicenseStatusByExpiry(license);
     return this.serializeLicense(license);
   }
 
@@ -253,17 +254,21 @@ export class LicenseService {
 
   private serializeLicense(license: any) {
     const now = new Date();
+    const expiresAt = new Date(license.expiresAt);
+    const expiredByDate = expiresAt.getTime() <= now.getTime();
+    const effectiveStatus =
+      expiredByDate && license.status !== 'SUSPENDED' ? 'EXPIRED' : license.status;
     const daysRemaining = Math.max(
       0,
       Math.ceil(
-        (new Date(license.expiresAt).getTime() - now.getTime()) /
+        (expiresAt.getTime() - now.getTime()) /
           (1000 * 60 * 60 * 24),
       ),
     );
 
     return {
       id: license.id,
-      status: license.status as string,
+      status: effectiveStatus as string,
       expiresAt: license.expiresAt,
       daysRemaining,
       holderName: license.holderName,
@@ -285,5 +290,29 @@ export class LicenseService {
         createdAt: p.createdAt,
       })),
     };
+  }
+
+  private async syncLicenseStatusByExpiry(license: any) {
+    const expiresAt = new Date(license.expiresAt);
+    const expiredByDate = expiresAt.getTime() <= Date.now();
+
+    if (
+      !expiredByDate ||
+      license.status === 'EXPIRED' ||
+      license.status === 'SUSPENDED'
+    ) {
+      return license;
+    }
+
+    return this.prisma.license.update({
+      where: { id: license.id },
+      data: { status: 'EXPIRED' },
+      include: {
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
   }
 }

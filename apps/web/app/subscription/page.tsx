@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api, getErrorMessage } from "../../lib/api";
 import { formatDateTime } from "../../lib/format";
+import { isLicenseBlocked } from "../../lib/license";
 import type { LicensePayment, LicenseRecord } from "../../lib/types";
 
 function maskCpf(v: string) {
@@ -17,7 +18,7 @@ function StatusChip({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     TRIAL: { label: "Período de teste", cls: "border-[var(--info)]/20 bg-[var(--info-soft,#eff6ff)] text-[var(--info,#2563eb)]" },
     ACTIVE: { label: "Ativa", cls: "border-[var(--success)]/20 bg-[var(--success-soft)] text-[var(--success)]" },
-    EXPIRED: { label: "Expirada", cls: "border-[var(--danger)]/20 bg-[var(--danger-soft)] text-[var(--danger)]" },
+    EXPIRED: { label: "Vencida", cls: "border-[var(--danger)]/20 bg-[var(--danger-soft)] text-[var(--danger)]" },
     SUSPENDED: { label: "Suspensa", cls: "border-[var(--warning)]/20 bg-[var(--warning-soft,#fffbeb)] text-[var(--warning,#d97706)]" },
   };
   const { label, cls } = map[status] ?? map.TRIAL;
@@ -45,6 +46,7 @@ export default function SubscriptionPage() {
   const [pendingPayment, setPendingPayment] = useState<LicensePayment | null>(null);
   const [syncing, setSyncing] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const licenseExpired = license ? isLicenseBlocked(license) : false;
 
   async function loadLicense() {
     try {
@@ -155,7 +157,9 @@ export default function SubscriptionPage() {
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-[var(--border)] px-4 py-4 text-center">
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Válida até</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">
+                    {licenseExpired ? "Venceu em" : "Válida até"}
+                  </p>
                   <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">{formatDateTime(license.expiresAt)}</p>
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] px-4 py-4 text-center">
