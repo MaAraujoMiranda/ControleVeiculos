@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [isLoginPage, loading, router, session]);
 
   useEffect(() => {
-    if (!loading && session) {
+    if (!loading && session && !isLoginPage) {
       void refreshLicenseState();
       return;
     }
@@ -249,7 +249,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       setLicenseState(null);
       setLicenseLoading(false);
     }
-  }, [loading, session]);
+  }, [isLoginPage, loading, session]);
 
   useEffect(() => {
     if (!loading && session && isLoginPage && licenseChecked && !licenseLoading) {
