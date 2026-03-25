@@ -72,7 +72,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     window.addEventListener("auth:unauthorized", handleUnauthorized);
-    void hydrateSession();
+    if (window.location.pathname === "/login") {
+      setLoading(false);
+    } else {
+      void hydrateSession();
+    }
 
     return () => {
       window.removeEventListener("auth:unauthorized", handleUnauthorized);
