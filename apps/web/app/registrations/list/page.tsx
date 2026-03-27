@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type MouseEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { ConfirmDialog } from "../../../components/confirm-dialog";
 import { api, getErrorMessage } from "../../../lib/api";
 import { formatDateTime, formatStatusLabel } from "../../../lib/format";
-import { getMenuPosition } from "../../../lib/menu-position";
 import type { PaginationMeta, RegistrationRecord } from "../../../lib/types";
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
@@ -37,6 +36,40 @@ function getRegistrationVehicles(reg: RegistrationRecord) {
   ];
 }
 
+function RowActionButton({
+  title,
+  tone = "default",
+  onClick,
+  children,
+}: {
+  title: string;
+  tone?: "default" | "success" | "danger";
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const toneClass =
+    tone === "success"
+      ? "text-[var(--success)] hover:bg-[var(--success-soft)]"
+      : tone === "danger"
+        ? "text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+        : "text-[var(--muted)] hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]";
+
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] transition-colors sm:h-8 sm:w-8 ${toneClass}`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function RegistrationsListPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -47,20 +80,8 @@ export default function RegistrationsListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{
-    reg: RegistrationRecord;
-    top: number;
-    left: number;
-  } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  function openMenu(e: MouseEvent<HTMLButtonElement>, reg: RegistrationRecord) {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const position = getMenuPosition(rect, 180, 196);
-    setMenu({ reg, ...position });
-  }
 
   async function loadRegistrations() {
     setLoading(true);
@@ -157,57 +178,6 @@ export default function RegistrationsListPage() {
         }}
       />
 
-      {menu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
-          <div
-            className="fixed z-50 w-[180px] max-w-[calc(100vw-1rem)] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
-            style={{ top: menu.top, left: menu.left }}
-          >
-            <Link
-              href={`/registrations/${menu.reg.id}`}
-              onClick={() => setMenu(null)}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-strong)]"
-            >
-              Visualizar
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                router.push(`/registrations?edit=${menu.reg.id}`);
-                setMenu(null);
-              }}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-strong)]"
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                void toggleStatus(menu.reg);
-                setMenu(null);
-              }}
-              className={`flex w-full items-center px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-strong)] ${
-                menu.reg.status === "ACTIVE" ? "text-[var(--danger)]" : "text-[var(--success)]"
-              }`}
-            >
-              {menu.reg.status === "ACTIVE" ? "Desativar" : "Ativar"}
-            </button>
-            <div className="my-1 border-t border-[var(--border)]" />
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteTarget(menu.reg);
-                setMenu(null);
-              }}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
-            >
-              Excluir
-            </button>
-          </div>
-        </>
-      )}
-
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1
@@ -278,7 +248,7 @@ export default function RegistrationsListPage() {
                 <th>Veículo</th>
                 <th className="hidden sm:table-cell">Cartão / TR SL</th>
                 <th>Status</th>
-                <th>Ações</th>
+                <th className="w-[126px]">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -357,18 +327,47 @@ export default function RegistrationsListPage() {
                     </td>
 
                     <td>
-                      <button
-                        type="button"
-                        onClick={(e) => openMenu(e, reg)}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-                        aria-label="Ações"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
-                          <circle cx="2" cy="7" r="1.25" />
-                          <circle cx="7" cy="7" r="1.25" />
-                          <circle cx="12" cy="7" r="1.25" />
-                        </svg>
-                      </button>
+                      <div className="flex min-w-[106px] flex-wrap items-center gap-1">
+                        <RowActionButton
+                          title="Editar cadastro"
+                          onClick={() => router.push(`/registrations?edit=${reg.id}`)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <path d="M2 9.8V12h2.2l6.4-6.4-2.2-2.2L2 9.8z" />
+                            <path d="M7.9 2.8l2.2 2.2" />
+                          </svg>
+                        </RowActionButton>
+                        <RowActionButton
+                          title={reg.status === "ACTIVE" ? "Desativar cadastro" : "Ativar cadastro"}
+                          tone={reg.status === "ACTIVE" ? "danger" : "success"}
+                          onClick={() => {
+                            void toggleStatus(reg);
+                          }}
+                        >
+                          {reg.status === "ACTIVE" ? (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                              <path d="M7 1.5v5" />
+                              <path d="M3 3.5a5 5 0 107.9 0" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                              <path d="M7 1.5v5" />
+                              <path d="M3 3.5a5 5 0 107.9 0" />
+                            </svg>
+                          )}
+                        </RowActionButton>
+                        <RowActionButton
+                          title="Excluir cadastro"
+                          tone="danger"
+                          onClick={() => setDeleteTarget(reg)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
+                            <path d="M2 3.5h10" />
+                            <path d="M5 3.5v-1h4v1" />
+                            <path d="M4 4.5l.4 7h5.2l.4-7" />
+                          </svg>
+                        </RowActionButton>
+                      </div>
                     </td>
                   </tr>
                 ))
