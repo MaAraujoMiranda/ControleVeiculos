@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { api, getErrorMessage } from "../../lib/api";
 import { formatDateTime, formatStatusLabel } from "../../lib/format";
+import { getMenuPosition } from "../../lib/menu-position";
 import type { PaginationMeta, RegistrationRecord } from "../../lib/types";
 
 /* ── Tipos internos ──────────────────────────────────────────── */
@@ -319,13 +320,14 @@ export default function RegistrationsPage() {
   const [menu, setMenu] = useState<{
     reg: RegistrationRecord;
     top: number;
-    right: number;
+    left: number;
   } | null>(null);
 
   function openMenu(e: MouseEvent<HTMLButtonElement>, reg: RegistrationRecord) {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setMenu({ reg, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    const position = getMenuPosition(rect, 180, 196);
+    setMenu({ reg, ...position });
   }
 
   async function toggleStatus(reg: RegistrationRecord) {
@@ -728,8 +730,8 @@ export default function RegistrationsPage() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div
-            className="fixed z-50 min-w-[150px] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
-            style={{ top: menu.top, right: menu.right }}
+            className="fixed z-50 w-[180px] max-w-[calc(100vw-1rem)] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
+            style={{ top: menu.top, left: menu.left }}
           >
             <Link
               href={`/registrations/${menu.reg.id}`}

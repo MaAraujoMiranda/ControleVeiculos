@@ -94,6 +94,25 @@ function IconCard() {
   );
 }
 
+function IconPlusSquare() {
+  return (
+    <svg
+      width="17"
+      height="17"
+      viewBox="0 0 17 17"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="1.5" y="1.5" width="14" height="14" rx="2" />
+      <path d="M8.5 5v7M5 8.5h7" />
+    </svg>
+  );
+}
+
 function IconGear() {
   return (
     <svg
@@ -175,11 +194,30 @@ function IconLogout() {
 
 const navItems = [
   { href: "/", label: "Painel", shortLabel: "Painel", icon: IconGrid },
-  { href: "/registrations", label: "Cadastros", shortLabel: "Cadastros", icon: IconCard },
+  {
+    href: "/registrations/list",
+    label: "Cadastros",
+    shortLabel: "Lista",
+    icon: IconCard,
+  },
+  {
+    href: "/registrations",
+    label: "Novo cadastro",
+    shortLabel: "Novo",
+    icon: IconPlusSquare,
+  },
   { href: "/settings", label: "Configurações", shortLabel: "Config.", icon: IconGear },
   { href: "/profile", label: "Meu Perfil", shortLabel: "Perfil", icon: IconUser },
   { href: "/subscription", label: "Minha Assinatura", shortLabel: "Licença", icon: IconLicense },
 ];
+
+function isNavItemActive(pathname: string, href: string) {
+  if (href === "/registrations/list") {
+    return pathname === href || pathname.startsWith("/registrations/");
+  }
+
+  return pathname === href;
+}
 
 /* ── Component ──────────────────────────────────────────────── */
 
@@ -397,8 +435,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             Navegação
           </p>
 
-          {navItems.slice(0, 3).map((item) => {
-            const active = pathname === item.href;
+          {navItems.slice(0, 4).map((item) => {
+            const active = isNavItemActive(pathname, item.href);
             const Icon = item.icon;
             const blockedItem = navigationLocked && item.href !== "/subscription";
             const className = `group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
@@ -446,8 +484,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             Conta
           </p>
 
-          {navItems.slice(3).map((item) => {
-            const active = pathname === item.href;
+          {navItems.slice(4).map((item) => {
+            const active = isNavItemActive(pathname, item.href);
             const Icon = item.icon;
             const blockedItem = navigationLocked && item.href !== "/subscription";
             const className = `group flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm font-medium transition-all ${
@@ -547,7 +585,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Mobile bottom nav ── */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-[var(--border)] bg-[var(--surface)] px-0.5 py-1.5 lg:hidden">
         {navItems.map((item) => {
-          const active = pathname === item.href;
+          const active = isNavItemActive(pathname, item.href);
           const Icon = item.icon;
           const blockedItem = navigationLocked && item.href !== "/subscription";
           const className = `flex flex-col items-center gap-1 rounded-lg px-2 py-1.5 transition-colors ${

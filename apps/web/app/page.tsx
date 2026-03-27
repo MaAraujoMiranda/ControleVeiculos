@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ConfirmDialog } from "../components/confirm-dialog";
 import { api, getErrorMessage } from "../lib/api";
 import { formatDateTime, formatStatusLabel } from "../lib/format";
+import { getMenuPosition } from "../lib/menu-position";
 import type { PaginationMeta, RegistrationRecord } from "../lib/types";
 
 type Status = RegistrationRecord["status"];
@@ -80,7 +81,7 @@ export default function DashboardPage() {
   const [menu, setMenu] = useState<{
     reg: RegistrationRecord;
     top: number;
-    right: number;
+    left: number;
   } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RegistrationRecord | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -89,7 +90,8 @@ export default function DashboardPage() {
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, reg: RegistrationRecord) {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
-    setMenu({ reg, top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    const position = getMenuPosition(rect, 180, 188);
+    setMenu({ reg, ...position });
   }
 
   /* Busca + totais iniciais */
@@ -216,8 +218,8 @@ export default function DashboardPage() {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
           <div
-            className="fixed z-50 min-w-[150px] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
-            style={{ top: menu.top, right: menu.right }}
+            className="fixed z-50 w-[180px] max-w-[calc(100vw-1rem)] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
+            style={{ top: menu.top, left: menu.left }}
           >
             <Link
               href={`/registrations/${menu.reg.id}`}
@@ -342,7 +344,7 @@ export default function DashboardPage() {
       {/* ── Resultados ── */}
       <div className="app-panel p-0 overflow-hidden">
         {/* Cabeçalho da lista */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex flex-col gap-3 px-5 py-4 border-b border-[var(--border)] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p
               className="font-semibold text-[var(--foreground)]"
@@ -359,9 +361,9 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
             <select
-              className="app-select mt-0 h-10 w-[152px] shrink-0 text-sm"
+              className="app-select mt-0 h-10 w-full shrink-0 text-sm sm:w-[190px]"
               value={statusFilter}
               onChange={(e) =>
                 setStatusFilter(e.target.value as DashboardStatusFilter)
@@ -371,7 +373,10 @@ export default function DashboardPage() {
               <option value="ACTIVE">Somente ativos</option>
               <option value="INACTIVE">Somente inativos</option>
             </select>
-            <Link href="/registrations" className="app-button-primary text-sm">
+            <Link
+              href="/registrations"
+              className="app-button-primary w-full text-center text-sm sm:w-auto"
+            >
               + Novo cadastro
             </Link>
           </div>
@@ -485,7 +490,7 @@ export default function DashboardPage() {
         {meta && meta.hasNextPage && (
           <div className="border-t border-[var(--border)] px-5 py-3 text-center">
             <Link
-              href="/registrations"
+              href="/registrations/list"
               className="text-sm font-medium text-[var(--accent)] hover:underline"
             >
               Ver todos os {meta.total} cadastros →
