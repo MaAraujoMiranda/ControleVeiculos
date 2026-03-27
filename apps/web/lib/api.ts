@@ -9,6 +9,7 @@ import type {
   LicenseRecord,
   LoginPayload,
   ListResponse,
+  DashboardStats,
   RegistrationPayload,
   RegistrationRecord,
   UpdateProfilePayload,
@@ -255,6 +256,10 @@ export const api = {
       undefined,
       query,
     );
+  },
+
+  getDashboardStats() {
+    return apiRequest<DashboardStats>("/registrations/dashboard-stats");
   },
 
   getRegistration(id: string) {

@@ -114,6 +114,13 @@ export interface RegistrationRecord {
   vehicle2: VehicleOption | null;
 }
 
+export interface DashboardStats {
+  activeClients: number;
+  inactiveClients: number;
+  vehicles: number;
+  registrations: number;
+}
+
 export interface ClientPayload {
   name?: string;
   company?: string;

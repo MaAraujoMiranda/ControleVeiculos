@@ -24,6 +24,11 @@ export class RegistrationsController {
     return this.registrationsService.listRegistrations(query);
   }
 
+  @Get('dashboard-stats')
+  getDashboardStats() {
+    return this.registrationsService.getDashboardStats();
+  }
+
   @Get(':id')
   getRegistrationById(@Param('id') id: string) {
     return this.registrationsService.getRegistrationById(id);

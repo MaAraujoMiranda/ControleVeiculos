@@ -51,6 +51,7 @@ module.exports = {
 
         // Logs
         LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+        HTTP_ACCESS_LOGS: process.env.HTTP_ACCESS_LOGS || 'true',
       },
     },
   ],

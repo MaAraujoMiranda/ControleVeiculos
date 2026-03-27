@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { AuditAction, Prisma } from '@prisma/client';
+import { AuditAction, Prisma, RegistrationStatus } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import {
   cleanString,
@@ -97,6 +97,74 @@ export class RegistrationsService {
     return {
       data,
       meta: buildPaginationMeta(total, page, pageSize),
+    };
+  }
+
+  async getDashboardStats() {
+    const baseWhere: Prisma.RegistrationWhereInput = {
+      deletedAt: null,
+    };
+
+    const [
+      registrations,
+      activeClientsRows,
+      inactiveClientsRows,
+      vehicleRows,
+      vehicle2Rows,
+    ] =
+      await this.prisma.$transaction([
+        this.prisma.registration.count({ where: baseWhere }),
+        this.prisma.registration.findMany({
+          where: {
+            ...baseWhere,
+            status: RegistrationStatus.ACTIVE,
+          },
+          select: { clientId: true },
+          distinct: ['clientId'],
+        }),
+        this.prisma.registration.findMany({
+          where: {
+            ...baseWhere,
+            status: {
+              in: [RegistrationStatus.INACTIVE, RegistrationStatus.BLOCKED],
+            },
+          },
+          select: { clientId: true },
+          distinct: ['clientId'],
+        }),
+        this.prisma.registration.findMany({
+          where: baseWhere,
+          select: { vehicleId: true },
+          distinct: ['vehicleId'],
+        }),
+        this.prisma.registration.findMany({
+          where: { ...baseWhere, vehicle2Id: { not: null } },
+          select: { vehicle2Id: true },
+          distinct: ['vehicle2Id'],
+        }),
+      ]);
+
+    const activeClientIds = new Set(
+      activeClientsRows.map((item) => item.clientId),
+    );
+    const inactiveClientIds = new Set(
+      inactiveClientsRows
+        .map((item) => item.clientId)
+        .filter((id) => !activeClientIds.has(id)),
+    );
+
+    const vehicleIds = new Set<string>([
+      ...vehicleRows.map((item) => item.vehicleId),
+      ...vehicle2Rows
+        .map((item) => item.vehicle2Id)
+        .filter((id): id is string => !!id),
+    ]);
+
+    return {
+      activeClients: activeClientIds.size,
+      inactiveClients: inactiveClientIds.size,
+      vehicles: vehicleIds.size,
+      registrations,
     };
   }
 

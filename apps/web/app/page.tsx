@@ -104,7 +104,8 @@ export default function DashboardPage() {
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState({
-    clients: 0,
+    activeClients: 0,
+    inactiveClients: 0,
     vehicles: 0,
     registrations: 0,
   });
@@ -121,22 +122,22 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const [regsRes, clientsRes, vehiclesRes] = await Promise.all([
+      const [regsRes, statsRes] = await Promise.all([
         api.listRegistrations({
           q: q || undefined,
           status: statusFilter === "ALL" ? undefined : statusFilter,
           pageSize: 30,
         }),
-        api.listClients({ pageSize: 1 }),
-        api.listVehicles({ pageSize: 1 }),
+        api.getDashboardStats(),
       ]);
 
       setRecords(regsRes.data);
       setMeta(regsRes.meta);
       setTotals({
-        clients: clientsRes.meta.total,
-        vehicles: vehiclesRes.meta.total,
-        registrations: regsRes.meta.total,
+        activeClients: statsRes.activeClients,
+        inactiveClients: statsRes.inactiveClients,
+        vehicles: statsRes.vehicles,
+        registrations: statsRes.registrations,
       });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -170,6 +171,7 @@ export default function DashboardPage() {
     );
     try {
       await api.updateRegistration(reg.id, { status: next });
+      await search(query);
     } catch {
       setRecords((prev) =>
         prev.map((r) => (r.id === reg.id ? { ...r, status: reg.status } : r)),
@@ -251,8 +253,9 @@ export default function DashboardPage() {
         {/* Contadores rápidos */}
         <div className="flex flex-wrap items-center gap-2">
           {[
-            { label: "Clientes", value: totals.clients },
-            { label: "Veículos", value: totals.vehicles },
+            { label: "Clientes ativos", value: totals.activeClients },
+            { label: "Clientes inativos", value: totals.inactiveClients },
+            { label: "Veículos totais", value: totals.vehicles },
             { label: "Cadastros", value: totals.registrations },
           ].map((item) => (
             <div
