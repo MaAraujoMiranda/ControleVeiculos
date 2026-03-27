@@ -2,20 +2,15 @@
 
 import {
   type FormEvent,
-  type MouseEvent,
-  useDeferredValue,
   useEffect,
   useRef,
   useState,
   useTransition,
 } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ConfirmDialog } from "../../components/confirm-dialog";
 import { api, getErrorMessage } from "../../lib/api";
-import { formatDateTime, formatStatusLabel } from "../../lib/format";
-import { getMenuPosition } from "../../lib/menu-position";
-import type { PaginationMeta, RegistrationRecord } from "../../lib/types";
+import { formatStatusLabel } from "../../lib/format";
+import type { RegistrationRecord } from "../../lib/types";
 
 /* ── Tipos internos ──────────────────────────────────────────── */
 
@@ -70,7 +65,6 @@ const emptyReg: RegForm = {
 };
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
-const REGISTRATIONS_PAGE_SIZE = 30;
 
 /* ── Máscaras de input ───────────────────────────────────────── */
 
@@ -106,9 +100,38 @@ function normalizePlate(v: string) {
   return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
+function normalizeDigits(v: string) {
+  return v.replace(/\D/g, "");
+}
+
 function isValidPlate(v: string) {
   const plate = normalizePlate(v);
   return /^[A-Z]{3}\d{4}$/.test(plate) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(plate);
+}
+
+function isValidCpf(v: string) {
+  const digits = normalizeDigits(v);
+
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) {
+    return false;
+  }
+
+  const calculateVerifier = (base: string, factor: number) => {
+    let total = 0;
+
+    for (const character of base) {
+      total += Number(character) * factor;
+      factor -= 1;
+    }
+
+    const remainder = total % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  const firstDigit = calculateVerifier(digits.slice(0, 9), 10);
+  const secondDigit = calculateVerifier(digits.slice(0, 10), 11);
+
+  return digits[9] === String(firstDigit) && digits[10] === String(secondDigit);
 }
 
 /* ── Componente: upload de foto ──────────────────────────────── */
@@ -207,41 +230,16 @@ function SectionHeader({
   );
 }
 
-/* ── Componente: badge de status ─────────────────────────────── */
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    ACTIVE:
-      "border-[var(--success)]/20 bg-[var(--success-soft)] text-[var(--success)]",
-    BLOCKED:
-      "border-[var(--danger)]/20 bg-[var(--danger-soft)] text-[var(--danger)]",
-    INACTIVE: "border-[var(--border)] bg-[var(--surface-strong)] text-[var(--muted)]",
-  };
-
-  return (
-    <span className={`app-badge ${map[status] ?? map.INACTIVE}`}>
-      {formatStatusLabel(status)}
-    </span>
-  );
-}
-
-function getRegistrationVehicles(reg: RegistrationRecord) {
-  return [
-    { plate: reg.vehicle.plate, brandModel: reg.vehicle.brandModel },
-    ...(reg.vehicle2
-      ? [{ plate: reg.vehicle2.plate, brandModel: reg.vehicle2.brandModel }]
-      : []),
-  ];
-}
-
 /* ── Componente: campos de veículo reutilizável ──────────────── */
 
 function VehicleFormFields({
   form,
   setForm,
+  plateInvalid = false,
 }: {
   form: VehicleForm;
   setForm: React.Dispatch<React.SetStateAction<VehicleForm>>;
+  plateInvalid?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
@@ -254,12 +252,19 @@ function VehicleFormFields({
         <label className="block">
           <span className="app-label">Placa</span>
           <input
-            className="app-input font-mono uppercase tracking-widest"
+            className={`app-input font-mono uppercase tracking-widest ${
+              plateInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""
+            }`}
             value={form.plate}
             onChange={(e) => setForm((f) => ({ ...f, plate: maskPlate(e.target.value) }))}
             placeholder="ABC-1234 ou ABC1D23"
             maxLength={8}
           />
+          {plateInvalid && (
+            <p className="mt-1 text-xs text-[var(--danger)]">
+              Placa inválida. Use o padrão antigo (ABC-1234) ou Mercosul (ABC1D23).
+            </p>
+          )}
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
@@ -306,43 +311,10 @@ export default function RegistrationsPage() {
   const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<Mode>("create");
-  const [search, setSearch] = useState("");
-  const deferredSearch = useDeferredValue(search);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [records, setRecords] = useState<RegistrationRecord[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const [menu, setMenu] = useState<{
-    reg: RegistrationRecord;
-    top: number;
-    left: number;
-  } | null>(null);
-
-  function openMenu(e: MouseEvent<HTMLButtonElement>, reg: RegistrationRecord) {
-    e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const position = getMenuPosition(rect, 180, 196);
-    setMenu({ reg, ...position });
-  }
-
-  async function toggleStatus(reg: RegistrationRecord) {
-    const next = reg.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    setRecords((prev) =>
-      prev.map((r) => (r.id === reg.id ? { ...r, status: next } : r)),
-    );
-    try {
-      await api.updateRegistration(reg.id, { status: next });
-    } catch {
-      setRecords((prev) =>
-        prev.map((r) => (r.id === reg.id ? { ...r, status: reg.status } : r)),
-      );
-    }
-  }
 
   const [clientForm, setClientForm] = useState<ClientForm>(emptyClient);
   const [vehicleForm, setVehicleForm] = useState<VehicleForm>(emptyVehicle);
@@ -352,44 +324,19 @@ export default function RegistrationsPage() {
   const [regForm, setRegForm] = useState<RegForm>(emptyReg);
   const [editingReg, setEditingReg] = useState<RegistrationRecord | null>(null);
   const [allowMultipleVehicles, setAllowMultipleVehicles] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<RegistrationRecord | null>(null);
-  const [deleting, setDeleting] = useState(false);
+  const cpfInvalid = clientForm.cpf.trim().length > 0 && !isValidCpf(clientForm.cpf);
+  const primaryPlateInvalid =
+    vehicleForm.plate.trim().length > 0 && !isValidPlate(vehicleForm.plate);
+  const secondaryPlateInvalid =
+    hasVehicle2 &&
+    vehicle2Form.plate.trim().length > 0 &&
+    !isValidPlate(vehicle2Form.plate);
 
   useEffect(() => {
     api.getConfiguration()
       .then((c) => setAllowMultipleVehicles(c.allowMultipleVehiclesPerClient))
       .catch(() => {});
   }, []);
-
-  async function loadRegistrations() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.listRegistrations({
-        q: deferredSearch,
-        status: statusFilter || undefined,
-        page,
-        pageSize: REGISTRATIONS_PAGE_SIZE,
-      });
-
-      const maxPage = res.meta.pageCount > 0 ? res.meta.pageCount : 1;
-      if (page > maxPage) {
-        setPage(maxPage);
-        return;
-      }
-
-      setRecords(res.data);
-      setMeta(res.meta);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadRegistrations();
-  }, [deferredSearch, page, statusFilter]);
 
   /* Detecta ?edit=ID vindo do dashboard */
   useEffect(() => {
@@ -482,18 +429,22 @@ export default function RegistrationsPage() {
     setError(null);
     setSuccess(null);
 
-    if (vehicleForm.plate.trim() && !isValidPlate(vehicleForm.plate)) {
+    if (cpfInvalid) {
+      setError("CPF inválido. Corrija o CPF para continuar.");
+      setSaving(false);
+      return;
+    }
+
+    if (primaryPlateInvalid) {
       setError("Placa do veiculo principal invalida. Use o padrao antigo ou Mercosul.");
       setSaving(false);
       return;
     }
 
-    if (hasVehicle2 && vehicle2Form.plate.trim()) {
-      if (!isValidPlate(vehicle2Form.plate)) {
-        setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
-        setSaving(false);
-        return;
-      }
+    if (secondaryPlateInvalid) {
+      setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
+      setSaving(false);
+      return;
     }
 
     try {
@@ -545,7 +496,6 @@ export default function RegistrationsPage() {
           : "Cadastro criado com sucesso.",
       );
       resetForm();
-      await loadRegistrations();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -561,18 +511,22 @@ export default function RegistrationsPage() {
     setError(null);
     setSuccess(null);
 
-    if (vehicleForm.plate.trim() && !isValidPlate(vehicleForm.plate)) {
+    if (cpfInvalid) {
+      setError("CPF inválido. Corrija o CPF para continuar.");
+      setSaving(false);
+      return;
+    }
+
+    if (primaryPlateInvalid) {
       setError("Placa do veiculo principal invalida. Use o padrao antigo ou Mercosul.");
       setSaving(false);
       return;
     }
 
-    if (hasVehicle2 && vehicle2Form.plate.trim()) {
-      if (!isValidPlate(vehicle2Form.plate)) {
-        setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
-        setSaving(false);
-        return;
-      }
+    if (secondaryPlateInvalid) {
+      setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
+      setSaving(false);
+      return;
     }
 
     try {
@@ -632,67 +586,16 @@ export default function RegistrationsPage() {
 
       setSuccess("Cadastro atualizado com sucesso.");
       resetForm();
-      await loadRegistrations();
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setSaving(false);
     }
   }
-
-  async function handleDelete(id: string) {
-    setError(null);
-    setSuccess(null);
-    setDeleting(true);
-    try {
-      await api.deleteRegistration(id);
-      setSuccess("Cadastro removido.");
-      setDeleteTarget(null);
-      if (editingReg?.id === id) resetForm();
-      await loadRegistrations();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   const isEdit = mode === "edit";
-  const recordsStart = meta && meta.total > 0 ? (meta.page - 1) * meta.pageSize + 1 : 0;
-  const recordsEnd = meta && meta.total > 0 ? Math.min(meta.page * meta.pageSize, meta.total) : 0;
-
-  function goToPreviousPage() {
-    setPage((current) => Math.max(1, current - 1));
-  }
-
-  function goToNextPage() {
-    if (!meta?.hasNextPage) return;
-    setPage((current) => current + 1);
-  }
 
   return (
     <div className="space-y-5">
-      {/* ── Cabeçalho ── */}
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title="Excluir cadastro"
-        description="Tem certeza que deseja excluir este cadastro? Esta ação remove o registro e os dados vinculados."
-        confirmLabel="Excluir cadastro"
-        cancelLabel="Cancelar"
-        variant="danger"
-        busy={deleting}
-        onCancel={() => {
-          if (!deleting) {
-            setDeleteTarget(null);
-          }
-        }}
-        onConfirm={() => {
-          if (deleteTarget) {
-            void handleDelete(deleteTarget.id);
-          }
-        }}
-      />
-
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1
@@ -719,66 +622,17 @@ export default function RegistrationsPage() {
               + Novo cadastro
             </button>
           )}
-          <span className="app-badge">
-            {loading ? "…" : meta?.total ?? 0} registros
-          </span>
         </div>
       </div>
-
-      {/* ── Menu dropdown fixo ── */}
-      {menu && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />
-          <div
-            className="fixed z-50 w-[180px] max-w-[calc(100vw-1rem)] rounded-lg border border-[var(--border)] bg-[var(--surface)] py-1 shadow-xl"
-            style={{ top: menu.top, left: menu.left }}
-          >
-            <Link
-              href={`/registrations/${menu.reg.id}`}
-              onClick={() => setMenu(null)}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-strong)]"
-            >
-              Visualizar
-            </Link>
-            <button
-              type="button"
-              onClick={() => { void startEdit(menu.reg); setMenu(null); }}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--surface-strong)]"
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => { void toggleStatus(menu.reg); setMenu(null); }}
-              className={`flex w-full items-center px-3 py-2 text-sm font-medium transition-colors hover:bg-[var(--surface-strong)] ${
-                menu.reg.status === "ACTIVE" ? "text-[var(--danger)]" : "text-[var(--success)]"
-              }`}
-            >
-              {menu.reg.status === "ACTIVE" ? "Desativar" : "Ativar"}
-            </button>
-            <div className="my-1 border-t border-[var(--border)]" />
-            <button
-              type="button"
-              onClick={() => {
-                setDeleteTarget(menu.reg);
-                setMenu(null);
-              }}
-              className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
-            >
-              Excluir
-            </button>
-          </div>
-        </>
-      )}
 
       {error && <div className="app-status-error">{error}</div>}
       {success && <div className="app-status-success">{success}</div>}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,620px)_1fr]">
+      <div className="mx-auto max-w-4xl">
         {/* ══════════════════════════════════════════════════
             FORMULÁRIO
         ══════════════════════════════════════════════════ */}
-        <div className="min-w-0 xl:sticky xl:top-4 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto xl:pr-1">
+        <div className="min-w-0">
           {isEdit ? (
             /* ── Modo Edição (todos os campos editáveis) ── */
             <form className="space-y-4" onSubmit={handleEdit}>
@@ -823,13 +677,18 @@ export default function RegistrationsPage() {
                       <label className="block">
                         <span className="app-label">CPF</span>
                         <input
-                          className="app-input"
+                          className={`app-input ${cpfInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""}`}
                           value={clientForm.cpf}
                           onChange={(e) =>
                             setClientForm((f) => ({ ...f, cpf: maskCpf(e.target.value) }))
                           }
                           maxLength={14}
                         />
+                        {cpfInvalid && (
+                          <p className="mt-1 text-xs text-[var(--danger)]">
+                            CPF inválido. Informe um CPF válido.
+                          </p>
+                        )}
                       </label>
                       <label className="block">
                         <span className="app-label">Telefone</span>
@@ -876,13 +735,20 @@ export default function RegistrationsPage() {
                     <label className="block">
                       <span className="app-label">Placa</span>
                       <input
-                        className="app-input font-mono uppercase tracking-widest"
+                        className={`app-input font-mono uppercase tracking-widest ${
+                          primaryPlateInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""
+                        }`}
                         value={vehicleForm.plate}
                         onChange={(e) =>
                           setVehicleForm((f) => ({ ...f, plate: maskPlate(e.target.value) }))
                         }
                         maxLength={8}
                       />
+                      {primaryPlateInvalid && (
+                        <p className="mt-1 text-xs text-[var(--danger)]">
+                          Placa inválida. Use o padrão antigo (ABC-1234) ou Mercosul (ABC1D23).
+                        </p>
+                      )}
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
@@ -943,7 +809,11 @@ export default function RegistrationsPage() {
                     </button>
                   </div>
                   {hasVehicle2 && (
-                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} />
+                    <VehicleFormFields
+                      form={vehicle2Form}
+                      setForm={setVehicle2Form}
+                      plateInvalid={secondaryPlateInvalid}
+                    />
                   )}
                 </div>
               )}
@@ -1099,7 +969,7 @@ export default function RegistrationsPage() {
                       <label className="block">
                         <span className="app-label">CPF</span>
                         <input
-                          className="app-input"
+                          className={`app-input ${cpfInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""}`}
                           value={clientForm.cpf}
                           onChange={(e) =>
                             setClientForm((f) => ({
@@ -1110,6 +980,11 @@ export default function RegistrationsPage() {
                           placeholder="000.000.000-00"
                           maxLength={14}
                         />
+                        {cpfInvalid && (
+                          <p className="mt-1 text-xs text-[var(--danger)]">
+                            CPF inválido. Informe um CPF válido.
+                          </p>
+                        )}
                       </label>
                       <label className="block">
                         <span className="app-label">Telefone</span>
@@ -1150,7 +1025,11 @@ export default function RegistrationsPage() {
                   label="Dados do veículo"
                   desc="Campos opcionais (aceita placa antiga ou Mercosul)"
                 />
-                <VehicleFormFields form={vehicleForm} setForm={setVehicleForm} />
+                <VehicleFormFields
+                  form={vehicleForm}
+                  setForm={setVehicleForm}
+                  plateInvalid={primaryPlateInvalid}
+                />
               </div>
 
               {/* ② b — 2º Veículo (se múltiplos permitidos) */}
@@ -1171,7 +1050,11 @@ export default function RegistrationsPage() {
                     </button>
                   </div>
                   {hasVehicle2 && (
-                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} />
+                    <VehicleFormFields
+                      form={vehicle2Form}
+                      setForm={setVehicle2Form}
+                      plateInvalid={secondaryPlateInvalid}
+                    />
                   )}
                 </div>
               )}
@@ -1281,196 +1164,6 @@ export default function RegistrationsPage() {
           )}
         </div>
 
-        {/* ══════════════════════════════════════════════════
-            LISTA DE CADASTROS
-        ══════════════════════════════════════════════════ */}
-        <div className="app-panel min-w-0 space-y-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p
-                className="text-lg font-bold text-[var(--foreground)]"
-                style={{ fontFamily: "var(--font-display)" }}
-              >
-                Cadastros
-              </p>
-              <p className="text-sm text-[var(--muted)]">
-                Busca por nome, empresa, placa (incluindo 2º veículo), cartão ou TR SL.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                className="app-input mt-0 w-full"
-                placeholder="Buscar por nome, empresa, placa, cartão ou TR SL..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-              <select
-                className="app-select mt-0 sm:w-40 shrink-0"
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-              >
-                <option value="">Todos os status</option>
-                {statusOptions.map((s) => (
-                  <option key={s} value={s}>
-                    {formatStatusLabel(s)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="app-table-shell">
-            <table className="app-table">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Veículo</th>
-                  <th className="hidden sm:table-cell">Cartão / TR SL</th>
-                  <th>Status</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="py-10 text-center text-[var(--muted)]"
-                    >
-                      {loading
-                        ? "Carregando cadastros..."
-                        : "Nenhum cadastro encontrado."}
-                    </td>
-                  </tr>
-                ) : (
-                  records.map((reg) => (
-                    <tr
-                      key={reg.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/registrations/${reg.id}`)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          router.push(`/registrations/${reg.id}`);
-                        }
-                      }}
-                      className={
-                        editingReg?.id === reg.id
-                          ? "!bg-[var(--accent-soft)] cursor-pointer"
-                          : "cursor-pointer hover:bg-[var(--surface-strong)]"
-                      }
-                    >
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent)]">
-                            {reg.client.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-semibold">{reg.client.name}</p>
-                            {reg.client.company && (
-                              <p className="text-xs text-[var(--muted)]">
-                                {reg.client.company}
-                              </p>
-                            )}
-                            <p className="text-xs text-[var(--muted)]">
-                              {reg.client.cpf}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td>
-                        <p className="text-xs text-[var(--muted)]">
-                          {getRegistrationVehicles(reg).map((vehicle, index) => (
-                            <span key={`${reg.id}-vehicle-${index}`}>
-                              {index > 0 ? ", " : ""}
-                              <span className="font-mono font-semibold text-[var(--foreground)]">
-                                {vehicle.plate}
-                              </span>
-                              {vehicle.brandModel ? ` ${vehicle.brandModel}` : ""}
-                            </span>
-                          ))}
-                          {" - "}
-                          {formatDateTime(reg.updatedAt)}
-                        </p>
-                      </td>
-
-                      <td className="hidden sm:table-cell">
-                        <p className="font-mono text-sm">
-                          {reg.cardNumber || "—"}
-                        </p>
-                        <p className="text-xs text-[var(--muted)]">
-                          TR: {reg.trSl || "—"}
-                        </p>
-                      </td>
-
-                      <td>
-                        <StatusBadge status={reg.status} />
-                      </td>
-
-                      <td>
-                        <button
-                          type="button"
-                          onClick={(e) => openMenu(e, reg)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] transition-colors hover:bg-[var(--surface-strong)] hover:text-[var(--foreground)]"
-                          aria-label="Ações"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
-                            <circle cx="2" cy="7" r="1.25" />
-                            <circle cx="7" cy="7" r="1.25" />
-                            <circle cx="12" cy="7" r="1.25" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {meta && (
-            <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-[var(--muted)]">
-                {meta.total === 0
-                  ? "Nenhum registro para exibir."
-                  : `Mostrando ${recordsStart} a ${recordsEnd} de ${meta.total} registros`}
-              </p>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="app-button-secondary px-3 py-2 text-xs"
-                  onClick={goToPreviousPage}
-                  disabled={loading || !meta.hasPreviousPage}
-                >
-                  Anterior
-                </button>
-
-                <span className="text-xs font-medium text-[var(--muted)]">
-                  Página {meta.pageCount === 0 ? 0 : meta.page} de {meta.pageCount}
-                </span>
-
-                <button
-                  type="button"
-                  className="app-button-secondary px-3 py-2 text-xs"
-                  onClick={goToNextPage}
-                  disabled={loading || !meta.hasNextPage}
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
