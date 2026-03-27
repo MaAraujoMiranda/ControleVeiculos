@@ -268,17 +268,19 @@ export class VehiclesService {
   }
 
   private buildCreateVehicleData(dto: CreateVehicleDto) {
-    if (!isValidPlate(dto.plate)) {
+    const plate = cleanString(dto.plate ?? '');
+
+    if (plate.length > 0 && !isValidPlate(plate)) {
       throw new BadRequestException(
         'Placa invalida. Informe no padrao antigo ou Mercosul.',
       );
     }
 
-    const plateNormalized = normalizePlate(dto.plate);
+    const plateNormalized = plate.length > 0 ? normalizePlate(plate) : '';
 
     return {
       clientId: dto.clientId,
-      plate: formatPlate(plateNormalized),
+      plate: plateNormalized ? formatPlate(plateNormalized) : '',
       plateNormalized,
       brandModel: nullableTrim(dto.brandModel),
       color: nullableTrim(dto.color),
@@ -295,14 +297,16 @@ export class VehiclesService {
     }
 
     if (dto.plate !== undefined) {
-      if (!isValidPlate(dto.plate)) {
+      const plate = cleanString(dto.plate);
+
+      if (plate.length > 0 && !isValidPlate(plate)) {
         throw new BadRequestException(
           'Placa invalida. Informe no padrao antigo ou Mercosul.',
         );
       }
 
-      const plateNormalized = normalizePlate(dto.plate);
-      data.plate = formatPlate(plateNormalized);
+      const plateNormalized = plate.length > 0 ? normalizePlate(plate) : '';
+      data.plate = plateNormalized ? formatPlate(plateNormalized) : '';
       data.plateNormalized = plateNormalized;
     }
 

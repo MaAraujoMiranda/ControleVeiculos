@@ -9,7 +9,6 @@ export class UpdateVehicleDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(7)
   @MaxLength(8)
   plate?: string;
 

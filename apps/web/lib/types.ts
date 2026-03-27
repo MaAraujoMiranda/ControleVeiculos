@@ -115,17 +115,17 @@ export interface RegistrationRecord {
 }
 
 export interface ClientPayload {
-  name: string;
+  name?: string;
   company?: string;
-  phone: string;
-  cpf: string;
+  phone?: string;
+  cpf?: string;
   photoUrl?: string;
   notes?: string;
 }
 
 export interface VehiclePayload {
   clientId: string;
-  plate: string;
+  plate?: string;
   brandModel?: string;
   color?: string;
   category?: string;

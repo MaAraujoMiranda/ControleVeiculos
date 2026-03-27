@@ -1,25 +1,25 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateClientDto {
+  @IsOptional()
   @IsString()
-  @MinLength(3)
   @MaxLength(160)
-  name!: string;
+  name?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(160)
   company?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(10)
   @MaxLength(20)
-  phone!: string;
+  phone?: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(11)
   @MaxLength(14)
-  cpf!: string;
+  cpf?: string;
 
   @IsOptional()
   @IsString()

@@ -238,20 +238,21 @@ export class ClientsService {
   }
 
   private buildCreateClientData(dto: CreateClientDto) {
-    const phone = cleanString(dto.phone);
+    const name = cleanString(dto.name ?? '');
+    const phone = cleanString(dto.phone ?? '');
+    const cpf = cleanString(dto.cpf ?? '');
 
-    if (!isValidBrazilianPhone(phone)) {
+    if (phone.length > 0 && !isValidBrazilianPhone(phone)) {
       throw new BadRequestException(
         'Telefone invalido. Informe um numero brasileiro com DDD.',
       );
     }
 
-    if (!isValidCpf(dto.cpf)) {
+    if (cpf.length > 0 && !isValidCpf(cpf)) {
       throw new BadRequestException('CPF invalido.');
     }
 
-    const name = cleanString(dto.name);
-    const cpfDigits = normalizeDigits(dto.cpf);
+    const cpfDigits = cpf.length > 0 ? normalizeDigits(cpf) : '';
 
     return {
       name,
@@ -259,7 +260,7 @@ export class ClientsService {
       company: nullableTrim(dto.company),
       phone,
       phoneNormalized: normalizeDigits(phone),
-      cpf: formatCpf(cpfDigits),
+      cpf: cpfDigits ? formatCpf(cpfDigits) : '',
       cpfDigits,
       photoUrl: nullableTrim(dto.photoUrl),
       notes: nullableTrim(dto.notes),
@@ -278,7 +279,7 @@ export class ClientsService {
     if (dto.phone !== undefined) {
       const phone = cleanString(dto.phone);
 
-      if (!isValidBrazilianPhone(phone)) {
+      if (phone.length > 0 && !isValidBrazilianPhone(phone)) {
         throw new BadRequestException(
           'Telefone invalido. Informe um numero brasileiro com DDD.',
         );
@@ -289,12 +290,14 @@ export class ClientsService {
     }
 
     if (dto.cpf !== undefined) {
-      if (!isValidCpf(dto.cpf)) {
+      const cpf = cleanString(dto.cpf);
+
+      if (cpf.length > 0 && !isValidCpf(cpf)) {
         throw new BadRequestException('CPF invalido.');
       }
 
-      const cpfDigits = normalizeDigits(dto.cpf);
-      data.cpf = formatCpf(cpfDigits);
+      const cpfDigits = cpf.length > 0 ? normalizeDigits(cpf) : '';
+      data.cpf = cpfDigits ? formatCpf(cpfDigits) : '';
       data.cpfDigits = cpfDigits;
     }
 

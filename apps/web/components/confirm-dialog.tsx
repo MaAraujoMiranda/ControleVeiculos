@@ -1,0 +1,68 @@
+"use client";
+
+interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  variant?: "danger" | "default";
+  busy?: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = "Cancelar",
+  variant = "default",
+  busy = false,
+  onCancel,
+  onConfirm,
+}: ConfirmDialogProps) {
+  if (!open) {
+    return null;
+  }
+
+  const cancelClass = variant === "danger" ? "app-button-primary" : "app-button-secondary";
+  const confirmClass =
+    variant === "danger"
+      ? "app-button-secondary border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+      : "app-button-primary";
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/50"
+        onClick={onCancel}
+        aria-label="Fechar confirmação"
+      />
+      <div className="relative w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-2xl">
+        <p className="text-lg font-semibold text-[var(--foreground)]">{title}</p>
+        <p className="mt-2 text-sm text-[var(--muted)]">{description}</p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            className={cancelClass}
+            onClick={onCancel}
+            disabled={busy}
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            className={confirmClass}
+            onClick={onConfirm}
+            disabled={busy}
+          >
+            {busy ? "Processando..." : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

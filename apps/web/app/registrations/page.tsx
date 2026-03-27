@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ConfirmDialog } from "../../components/confirm-dialog";
 import { api, getErrorMessage } from "../../lib/api";
 import { formatDateTime, formatStatusLabel } from "../../lib/format";
 import type { PaginationMeta, RegistrationRecord } from "../../lib/types";
@@ -98,6 +99,15 @@ function maskPlate(v: string) {
   const isOld =
     c.length > 3 && /\d/.test(c[3]) && (c.length < 5 || /\d/.test(c[4]));
   return isOld ? c.slice(0, 3) + "-" + c.slice(3) : c;
+}
+
+function normalizePlate(v: string) {
+  return v.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+function isValidPlate(v: string) {
+  const plate = normalizePlate(v);
+  return /^[A-Z]{3}\d{4}$/.test(plate) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(plate);
 }
 
 /* ── Componente: upload de foto ──────────────────────────────── */
@@ -228,11 +238,9 @@ function getRegistrationVehicles(reg: RegistrationRecord) {
 function VehicleFormFields({
   form,
   setForm,
-  required = false,
 }: {
   form: VehicleForm;
   setForm: React.Dispatch<React.SetStateAction<VehicleForm>>;
-  required?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
@@ -243,10 +251,9 @@ function VehicleFormFields({
       />
       <div className="min-w-0 w-full flex-1 space-y-3">
         <label className="block">
-          <span className="app-label">Placa {required ? "*" : ""}</span>
+          <span className="app-label">Placa</span>
           <input
             className="app-input font-mono uppercase tracking-widest"
-            required={required}
             value={form.plate}
             onChange={(e) => setForm((f) => ({ ...f, plate: maskPlate(e.target.value) }))}
             placeholder="ABC-1234 ou ABC1D23"
@@ -343,6 +350,8 @@ export default function RegistrationsPage() {
   const [regForm, setRegForm] = useState<RegForm>(emptyReg);
   const [editingReg, setEditingReg] = useState<RegistrationRecord | null>(null);
   const [allowMultipleVehicles, setAllowMultipleVehicles] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<RegistrationRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     api.getConfiguration()
@@ -471,12 +480,26 @@ export default function RegistrationsPage() {
     setError(null);
     setSuccess(null);
 
+    if (vehicleForm.plate.trim() && !isValidPlate(vehicleForm.plate)) {
+      setError("Placa do veiculo principal invalida. Use o padrao antigo ou Mercosul.");
+      setSaving(false);
+      return;
+    }
+
+    if (hasVehicle2 && vehicle2Form.plate.trim()) {
+      if (!isValidPlate(vehicle2Form.plate)) {
+        setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const client = await api.createClient({
-        name: clientForm.name,
+        name: clientForm.name || undefined,
         company: clientForm.company || undefined,
-        phone: clientForm.phone,
-        cpf: clientForm.cpf,
+        phone: clientForm.phone || undefined,
+        cpf: clientForm.cpf || undefined,
         photoUrl: clientForm.photoUrl || undefined,
         notes: clientForm.notes || undefined,
       });
@@ -514,7 +537,11 @@ export default function RegistrationsPage() {
         declarationUrl: declarationUrl || null,
       });
 
-      setSuccess(`Cadastro de ${client.name} criado com sucesso.`);
+      setSuccess(
+        client.name
+          ? `Cadastro de ${client.name} criado com sucesso.`
+          : "Cadastro criado com sucesso.",
+      );
       resetForm();
       await loadRegistrations();
     } catch (err) {
@@ -532,13 +559,27 @@ export default function RegistrationsPage() {
     setError(null);
     setSuccess(null);
 
+    if (vehicleForm.plate.trim() && !isValidPlate(vehicleForm.plate)) {
+      setError("Placa do veiculo principal invalida. Use o padrao antigo ou Mercosul.");
+      setSaving(false);
+      return;
+    }
+
+    if (hasVehicle2 && vehicle2Form.plate.trim()) {
+      if (!isValidPlate(vehicle2Form.plate)) {
+        setError("Placa do segundo veiculo invalida. Use o padrao antigo ou Mercosul.");
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const updatePromises: Promise<unknown>[] = [
         api.updateClient(editingReg.clientId, {
-          name: clientForm.name,
+          name: clientForm.name || undefined,
           company: clientForm.company || undefined,
-          phone: clientForm.phone,
-          cpf: clientForm.cpf,
+          phone: clientForm.phone || undefined,
+          cpf: clientForm.cpf || undefined,
           photoUrl: clientForm.photoUrl || undefined,
           notes: clientForm.notes || undefined,
         }),
@@ -598,16 +639,19 @@ export default function RegistrationsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm("Remover este cadastro?")) return;
     setError(null);
     setSuccess(null);
+    setDeleting(true);
     try {
       await api.deleteRegistration(id);
       setSuccess("Cadastro removido.");
+      setDeleteTarget(null);
       if (editingReg?.id === id) resetForm();
       await loadRegistrations();
     } catch (err) {
       setError(getErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -627,6 +671,26 @@ export default function RegistrationsPage() {
   return (
     <div className="space-y-5">
       {/* ── Cabeçalho ── */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir cadastro"
+        description="Tem certeza que deseja excluir este cadastro? Esta ação remove o registro e os dados vinculados."
+        confirmLabel="Excluir cadastro"
+        cancelLabel="Cancelar"
+        variant="danger"
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={() => {
+          if (deleteTarget) {
+            void handleDelete(deleteTarget.id);
+          }
+        }}
+      />
+
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1
@@ -693,7 +757,10 @@ export default function RegistrationsPage() {
             <div className="my-1 border-t border-[var(--border)]" />
             <button
               type="button"
-              onClick={() => { void handleDelete(menu.reg.id); setMenu(null); }}
+              onClick={() => {
+                setDeleteTarget(menu.reg);
+                setMenu(null);
+              }}
               className="flex w-full items-center px-3 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
             >
               Excluir
@@ -718,7 +785,7 @@ export default function RegistrationsPage() {
                 <SectionHeader
                   number="1"
                   label="Dados do cliente"
-                  desc="Nome, CPF e telefone são obrigatórios"
+                  desc="Todos os campos são opcionais"
                 />
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
@@ -730,10 +797,9 @@ export default function RegistrationsPage() {
                   />
                   <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
-                      <span className="app-label">Nome completo *</span>
+                      <span className="app-label">Nome completo</span>
                       <input
                         className="app-input"
-                        required
                         value={clientForm.name}
                         onChange={(e) =>
                           setClientForm((f) => ({ ...f, name: e.target.value }))
@@ -753,10 +819,9 @@ export default function RegistrationsPage() {
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
-                        <span className="app-label">CPF *</span>
+                        <span className="app-label">CPF</span>
                         <input
                           className="app-input"
-                          required
                           value={clientForm.cpf}
                           onChange={(e) =>
                             setClientForm((f) => ({ ...f, cpf: maskCpf(e.target.value) }))
@@ -765,10 +830,9 @@ export default function RegistrationsPage() {
                         />
                       </label>
                       <label className="block">
-                        <span className="app-label">Telefone *</span>
+                        <span className="app-label">Telefone</span>
                         <input
                           className="app-input"
-                          required
                           value={clientForm.phone}
                           onChange={(e) =>
                             setClientForm((f) => ({ ...f, phone: maskPhone(e.target.value) }))
@@ -796,7 +860,7 @@ export default function RegistrationsPage() {
                 <SectionHeader
                   number="2"
                   label="Dados do veículo"
-                  desc="Placa é obrigatória (antigo ou Mercosul)"
+                  desc="Campos opcionais (aceita placa antiga ou Mercosul)"
                 />
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
                   <PhotoPicker
@@ -808,10 +872,9 @@ export default function RegistrationsPage() {
                   />
                   <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
-                      <span className="app-label">Placa *</span>
+                      <span className="app-label">Placa</span>
                       <input
                         className="app-input font-mono uppercase tracking-widest"
-                        required
                         value={vehicleForm.plate}
                         onChange={(e) =>
                           setVehicleForm((f) => ({ ...f, plate: maskPlate(e.target.value) }))
@@ -878,7 +941,7 @@ export default function RegistrationsPage() {
                     </button>
                   </div>
                   {hasVehicle2 && (
-                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} required />
+                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} />
                   )}
                 </div>
               )}
@@ -995,7 +1058,7 @@ export default function RegistrationsPage() {
                 <SectionHeader
                   number="1"
                   label="Dados do cliente"
-                  desc="Nome, CPF e telefone são obrigatórios"
+                  desc="Todos os campos são opcionais"
                 />
 
                 <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
@@ -1009,10 +1072,9 @@ export default function RegistrationsPage() {
 
                   <div className="min-w-0 w-full flex-1 space-y-3">
                     <label className="block">
-                      <span className="app-label">Nome completo *</span>
+                      <span className="app-label">Nome completo</span>
                       <input
                         className="app-input"
-                        required
                         value={clientForm.name}
                         onChange={(e) =>
                           setClientForm((f) => ({ ...f, name: e.target.value }))
@@ -1033,10 +1095,9 @@ export default function RegistrationsPage() {
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
-                        <span className="app-label">CPF *</span>
+                        <span className="app-label">CPF</span>
                         <input
                           className="app-input"
-                          required
                           value={clientForm.cpf}
                           onChange={(e) =>
                             setClientForm((f) => ({
@@ -1049,10 +1110,9 @@ export default function RegistrationsPage() {
                         />
                       </label>
                       <label className="block">
-                        <span className="app-label">Telefone *</span>
+                        <span className="app-label">Telefone</span>
                         <input
                           className="app-input"
-                          required
                           value={clientForm.phone}
                           onChange={(e) =>
                             setClientForm((f) => ({
@@ -1086,9 +1146,9 @@ export default function RegistrationsPage() {
                 <SectionHeader
                   number="2"
                   label="Dados do veículo"
-                  desc="Placa é obrigatória (antigo ou Mercosul)"
+                  desc="Campos opcionais (aceita placa antiga ou Mercosul)"
                 />
-                <VehicleFormFields form={vehicleForm} setForm={setVehicleForm} required />
+                <VehicleFormFields form={vehicleForm} setForm={setVehicleForm} />
               </div>
 
               {/* ② b — 2º Veículo (se múltiplos permitidos) */}
@@ -1109,7 +1169,7 @@ export default function RegistrationsPage() {
                     </button>
                   </div>
                   {hasVehicle2 && (
-                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} required />
+                    <VehicleFormFields form={vehicle2Form} setForm={setVehicle2Form} />
                   )}
                 </div>
               )}

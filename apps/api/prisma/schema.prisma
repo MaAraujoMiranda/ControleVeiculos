@@ -87,7 +87,7 @@ model Vehicle {
   id              String         @id @default(cuid())
   clientId        String
   plate           String         @db.VarChar(8)
-  plateNormalized String         @unique @db.Char(7)
+  plateNormalized String         @db.Char(7)
   brandModel      String?        @db.VarChar(160)
   color           String?        @db.VarChar(60)
   category        String?        @db.VarChar(60)
@@ -100,6 +100,7 @@ model Vehicle {
   registrations2  Registration[] @relation("RegVehicle2")
 
   @@index([clientId])
+  @@index([plateNormalized])
 }
 
 model Registration {

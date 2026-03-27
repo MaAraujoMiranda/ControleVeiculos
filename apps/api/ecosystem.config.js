@@ -26,8 +26,6 @@ module.exports = {
       // Logs
       merge_logs: true,
       time: true,
-      error_file: './logs/app_error.log',
-      out_file: './logs/app_out.log',
       log_date_format: 'YYYY-MM-DD HH:mm Z',
 
       watch: false,

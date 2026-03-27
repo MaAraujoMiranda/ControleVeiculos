@@ -6,10 +6,10 @@ export class CreateVehicleDto {
   @MaxLength(191)
   clientId!: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(7)
   @MaxLength(8)
-  plate!: string;
+  plate?: string;
 
   @IsOptional()
   @IsString()

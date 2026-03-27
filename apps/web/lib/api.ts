@@ -31,9 +31,39 @@ export class ApiError extends Error {
   }
 }
 
+function extractApiMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const message = record.message;
+
+  if (typeof message === "string" && message.trim().length > 0) {
+    return message.trim();
+  }
+
+  if (Array.isArray(message)) {
+    const messages = message
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+
+    if (messages.length > 0) {
+      return messages.join(" ");
+    }
+  }
+
+  if (typeof record.error === "string" && record.error.trim().length > 0) {
+    return record.error.trim();
+  }
+
+  return null;
+}
+
 export function getErrorMessage(error: unknown) {
   if (error instanceof ApiError) {
-    return error.message;
+    return extractApiMessage(error.details) ?? error.message;
   }
 
   return "Nao foi possivel concluir a operacao.";
@@ -60,10 +90,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
     : null;
 
   if (!response.ok) {
-    const message =
-      typeof payload?.message === "string"
-        ? payload.message
-        : "Nao foi possivel concluir a operacao.";
+    const message = extractApiMessage(payload) ?? "Nao foi possivel concluir a operacao.";
 
     throw new ApiError(message, response.status, payload);
   }

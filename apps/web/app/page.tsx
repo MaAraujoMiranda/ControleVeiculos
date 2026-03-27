@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ConfirmDialog } from "../components/confirm-dialog";
 import { api, getErrorMessage } from "../lib/api";
 import { formatDateTime, formatStatusLabel } from "../lib/format";
 import type { PaginationMeta, RegistrationRecord } from "../lib/types";
 
 type Status = RegistrationRecord["status"];
+type DashboardStatusFilter = "ALL" | "ACTIVE" | "INACTIVE";
+
+const DASHBOARD_STATUS_FILTER_KEY = "controle-veiculos:dashboard-status-filter";
 
 /* ── Badge de status ────────────────────────────────────────── */
 
@@ -62,6 +66,7 @@ function SearchIcon() {
 export default function DashboardPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<DashboardStatusFilter>("ALL");
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [totals, setTotals] = useState({
@@ -71,11 +76,14 @@ export default function DashboardPage() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [menu, setMenu] = useState<{
     reg: RegistrationRecord;
     top: number;
     right: number;
   } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RegistrationRecord | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   function openMenu(e: React.MouseEvent<HTMLButtonElement>, reg: RegistrationRecord) {
@@ -91,7 +99,11 @@ export default function DashboardPage() {
 
     try {
       const [regsRes, clientsRes, vehiclesRes] = await Promise.all([
-        api.listRegistrations({ q: q || undefined, pageSize: 30 }),
+        api.listRegistrations({
+          q: q || undefined,
+          status: statusFilter === "ALL" ? undefined : statusFilter,
+          pageSize: 30,
+        }),
         api.listClients({ pageSize: 1 }),
         api.listVehicles({ pageSize: 1 }),
       ]);
@@ -107,6 +119,23 @@ export default function DashboardPage() {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setError(null);
+    setSuccess(null);
+    setDeleting(true);
+
+    try {
+      await api.deleteRegistration(id);
+      setDeleteTarget(null);
+      setSuccess("Cadastro removido com sucesso.");
+      await search(query);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -127,6 +156,25 @@ export default function DashboardPage() {
 
   /* Carga inicial */
   useEffect(() => {
+    const persistedFilter = window.localStorage.getItem(
+      DASHBOARD_STATUS_FILTER_KEY,
+    ) as DashboardStatusFilter | null;
+
+    if (
+      persistedFilter === "ALL" ||
+      persistedFilter === "ACTIVE" ||
+      persistedFilter === "INACTIVE"
+    ) {
+      setStatusFilter(persistedFilter);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(DASHBOARD_STATUS_FILTER_KEY, statusFilter);
+  }, [statusFilter]);
+
+  /* Carga inicial */
+  useEffect(() => {
     void search("");
     inputRef.current?.focus();
   }, []);
@@ -137,12 +185,32 @@ export default function DashboardPage() {
       void search(query);
     }, 300);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, statusFilter]);
 
   const isSearching = query.trim().length > 0;
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir cadastro"
+        description="Tem certeza que deseja excluir este cadastro? Esta ação remove o registro e os dados vinculados."
+        confirmLabel="Excluir cadastro"
+        cancelLabel="Cancelar"
+        variant="danger"
+        busy={deleting}
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+          }
+        }}
+        onConfirm={() => {
+          if (deleteTarget) {
+            void handleDelete(deleteTarget.id);
+          }
+        }}
+      />
+
       {/* ── Menu dropdown fixo ── */}
       {menu && (
         <>
@@ -173,6 +241,17 @@ export default function DashboardPage() {
               }`}
             >
               {menu.reg.status === "ACTIVE" ? "Desativar" : "Ativar"}
+            </button>
+            <div className="my-1 border-t border-[var(--border)]" />
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteTarget(menu.reg);
+                setMenu(null);
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-soft)]"
+            >
+              Excluir
             </button>
           </div>
         </>
@@ -258,6 +337,7 @@ export default function DashboardPage() {
       </div>
 
       {error && <div className="app-status-error">{error}</div>}
+      {success && <div className="app-status-success">{success}</div>}
 
       {/* ── Resultados ── */}
       <div className="app-panel p-0 overflow-hidden">
@@ -279,9 +359,22 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <Link href="/registrations" className="app-button-primary text-sm">
-            + Novo cadastro
-          </Link>
+          <div className="flex items-center gap-2">
+            <select
+              className="app-select mt-0 h-10 w-[152px] shrink-0 text-sm"
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as DashboardStatusFilter)
+              }
+            >
+              <option value="ALL">Todos os status</option>
+              <option value="ACTIVE">Somente ativos</option>
+              <option value="INACTIVE">Somente inativos</option>
+            </select>
+            <Link href="/registrations" className="app-button-primary text-sm">
+              + Novo cadastro
+            </Link>
+          </div>
         </div>
 
         {/* Lista */}
