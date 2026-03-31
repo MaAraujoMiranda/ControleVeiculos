@@ -297,19 +297,16 @@ export default function RegistrationsListPage() {
                         )}
                         <div>
                           <p className="font-semibold">{reg.client.name}</p>
-                          {reg.client.company && (
-                            <p className="text-xs text-[var(--muted)]">
-                              {reg.client.company}
-                            </p>
+                          {(reg.client.company || reg.client.clientType) && (
+                            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted)]">
+                              {reg.client.company && <span>{reg.client.company}</span>}
+                              {reg.client.clientType && (
+                                <span className="whitespace-nowrap">
+                                  Cliente: {reg.client.clientType}
+                                </span>
+                              )}
+                            </div>
                           )}
-                          {reg.client.clientType && (
-                            <p className="text-xs text-[var(--muted)]">
-                              Tipo: {reg.client.clientType}
-                            </p>
-                          )}
-                          <p className="text-xs text-[var(--muted)]">
-                            {reg.client.cpf}
-                          </p>
                         </div>
                       </div>
                     </td>
