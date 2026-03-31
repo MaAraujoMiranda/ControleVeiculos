@@ -425,9 +425,11 @@ export default function DashboardPage() {
                       <p className="font-semibold text-[var(--foreground)] truncate">
                         {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
-                      {reg.client.clientType && (
+                      {(reg.client.company || reg.client.clientType) && (
                         <p className="mt-0.5 text-xs text-[var(--muted)]">
-                          Tipo: {reg.client.clientType}
+                          {reg.client.company ?? ""}
+                          {reg.client.company && reg.client.clientType ? " - " : ""}
+                          {reg.client.clientType ?? ""}
                         </p>
                       )}
                       <p className="mt-0.5 text-xs text-[var(--muted)]">

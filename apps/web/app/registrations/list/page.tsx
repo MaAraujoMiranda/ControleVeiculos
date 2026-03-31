@@ -300,11 +300,10 @@ export default function RegistrationsListPage() {
                           {(reg.client.company || reg.client.clientType) && (
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted)]">
                               {reg.client.company && <span>{reg.client.company}</span>}
-                              {reg.client.clientType && (
-                                <span className="whitespace-nowrap">
-                                  Cliente: {reg.client.clientType}
-                                </span>
+                              {reg.client.company && reg.client.clientType && (
+                                <span aria-hidden> - </span>
                               )}
+                              {reg.client.clientType && <span>{reg.client.clientType}</span>}
                             </div>
                           )}
                         </div>
