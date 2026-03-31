@@ -248,6 +248,7 @@ export const api = {
     clientId?: string;
     vehicleId?: string;
     status?: string;
+    clientType?: string;
     page?: number;
     pageSize?: number;
   }) {

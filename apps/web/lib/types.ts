@@ -1,5 +1,6 @@
 export interface PaginationMeta {
   total: number;
+  globalTotal?: number;
   page: number;
   pageSize: number;
   pageCount: number;

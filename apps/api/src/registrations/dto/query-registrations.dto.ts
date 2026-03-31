@@ -1,6 +1,14 @@
 import { RegistrationStatus } from '@prisma/client';
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+
+const CLIENT_TYPES = [
+  'Proprietario',
+  'Socio',
+  'Funcionario',
+  'Mensalista',
+  'Sala',
+] as const;
 
 export class QueryRegistrationsDto extends PaginationQueryDto {
   @IsOptional()
@@ -21,4 +29,10 @@ export class QueryRegistrationsDto extends PaginationQueryDto {
   @IsOptional()
   @IsEnum(RegistrationStatus)
   status?: RegistrationStatus;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(CLIENT_TYPES)
+  @MaxLength(30)
+  clientType?: string;
 }

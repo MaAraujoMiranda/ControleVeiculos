@@ -34,52 +34,74 @@ export class RegistrationsService {
     const normalizedQuery = q ? normalizeForSearch(q) : null;
     const plateQuery = q ? normalizePlate(q) : null;
 
-    const where: Prisma.RegistrationWhereInput = {
-      deletedAt: null,
-      ...(query.clientId ? { clientId: query.clientId } : {}),
-      ...(query.vehicleId ? { vehicleId: query.vehicleId } : {}),
-      ...(query.status ? { status: query.status } : {}),
-      ...(q
-        ? {
-            OR: [
-              { cardNumber: { contains: q } },
-              { trSl: { contains: q } },
-              {
-                client: {
-                  OR: [
-                    {
-                      nameNormalized: {
-                        contains: normalizedQuery ?? undefined,
-                      },
-                    },
-                    {
-                      company: {
-                        contains: q,
-                      },
-                    },
-                  ],
-                },
-              },
-              {
-                vehicle: {
-                  plateNormalized: {
-                    contains: plateQuery ?? undefined,
-                  },
-                },
-              },
-              {
-                vehicle2: {
-                  plateNormalized: {
-                    contains: plateQuery ?? undefined,
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
-    };
+    const baseFilters: Prisma.RegistrationWhereInput[] = [{ deletedAt: null }];
 
-    const [data, total] = await this.prisma.$transaction([
+    if (query.clientId) {
+      baseFilters.push({ clientId: query.clientId });
+    }
+
+    if (query.vehicleId) {
+      baseFilters.push({ vehicleId: query.vehicleId });
+    }
+
+    const filters: Prisma.RegistrationWhereInput[] = [...baseFilters];
+
+    if (query.status) {
+      filters.push({ status: query.status });
+    }
+
+    if (query.clientType) {
+      filters.push({
+        client: {
+          clientType: query.clientType,
+        },
+      });
+    }
+
+    if (q) {
+      filters.push({
+        OR: [
+          { cardNumber: { contains: q } },
+          { trSl: { contains: q } },
+          {
+            client: {
+              OR: [
+                {
+                  nameNormalized: {
+                    contains: normalizedQuery ?? undefined,
+                  },
+                },
+                {
+                  company: {
+                    contains: q,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            vehicle: {
+              plateNormalized: {
+                contains: plateQuery ?? undefined,
+              },
+            },
+          },
+          {
+            vehicle2: {
+              plateNormalized: {
+                contains: plateQuery ?? undefined,
+              },
+            },
+          },
+        ],
+      });
+    }
+
+    const baseWhere =
+      baseFilters.length === 1 ? baseFilters[0] : { AND: baseFilters };
+    const where = filters.length === 1 ? filters[0] : { AND: filters };
+
+    const [data, total, globalTotal] = await this.prisma.$transaction([
       this.prisma.registration.findMany({
         where,
         orderBy: [{ createdAt: 'desc' }],
@@ -92,11 +114,15 @@ export class RegistrationsService {
         },
       }),
       this.prisma.registration.count({ where }),
+      this.prisma.registration.count({ where: baseWhere }),
     ]);
 
     return {
       data,
-      meta: buildPaginationMeta(total, page, pageSize),
+      meta: {
+        ...buildPaginationMeta(total, page, pageSize),
+        globalTotal,
+      },
     };
   }
 

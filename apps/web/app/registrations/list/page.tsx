@@ -9,6 +9,13 @@ import { formatDateTime, formatStatusLabel } from "../../../lib/format";
 import type { PaginationMeta, RegistrationRecord } from "../../../lib/types";
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
+const clientTypeOptions = [
+  "Proprietario",
+  "Socio",
+  "Funcionario",
+  "Mensalista",
+  "Sala",
+] as const;
 const REGISTRATIONS_PAGE_SIZE = 30;
 
 function StatusBadge({ status }: { status: string }) {
@@ -78,6 +85,7 @@ export default function RegistrationsListPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [clientTypeFilter, setClientTypeFilter] = useState("");
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -95,6 +103,7 @@ export default function RegistrationsListPage() {
       const res = await api.listRegistrations({
         q: search || undefined,
         status: statusFilter || undefined,
+        clientType: clientTypeFilter || undefined,
         page,
         pageSize: REGISTRATIONS_PAGE_SIZE,
       });
@@ -116,7 +125,7 @@ export default function RegistrationsListPage() {
 
   useEffect(() => {
     void loadRegistrations();
-  }, [search, page, statusFilter]);
+  }, [search, page, statusFilter, clientTypeFilter]);
 
   async function toggleStatus(reg: RegistrationRecord) {
     const next = reg.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -150,6 +159,11 @@ export default function RegistrationsListPage() {
 
   const recordsStart = meta && meta.total > 0 ? (meta.page - 1) * meta.pageSize + 1 : 0;
   const recordsEnd = meta && meta.total > 0 ? Math.min(meta.page * meta.pageSize, meta.total) : 0;
+  const hasActiveFilters = Boolean(
+    search.trim() || statusFilter || clientTypeFilter,
+  );
+  const globalTotal = meta?.globalTotal ?? meta?.total ?? 0;
+  const filteredTotal = meta?.total ?? 0;
 
   function goToPreviousPage() {
     setPage((current) => Math.max(1, current - 1));
@@ -203,7 +217,7 @@ export default function RegistrationsListPage() {
       {success && <div className="app-status-success">{success}</div>}
 
       <div className="app-panel min-w-0 space-y-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p
               className="text-lg font-bold text-[var(--foreground)]"
@@ -214,11 +228,21 @@ export default function RegistrationsListPage() {
             <p className="text-sm text-[var(--muted)]">
               Busca por nome, empresa, placa (incluindo 2º veículo), cartão ou TR SL.
             </p>
+            {meta && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--muted)]">
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-1 font-medium text-[var(--foreground)]">
+                  {hasActiveFilters && globalTotal !== filteredTotal
+                    ? `Encontrados ${filteredTotal} de ${globalTotal} registros`
+                    : `${filteredTotal} registros encontrados`}
+                </span>
+                <span>Exibindo {records.length} nesta página</span>
+              </p>
+            )}
           </div>
 
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="grid w-full gap-2 sm:grid-cols-2 xl:max-w-[760px] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_180px_190px]">
             <input
-              className="app-input mt-0 w-full sm:min-w-[280px]"
+              className="app-input mt-0 w-full sm:col-span-2 xl:col-span-1"
               placeholder="Buscar por nome, empresa, placa, cartão ou TR SL..."
               value={search}
               onChange={(e) => {
@@ -227,7 +251,7 @@ export default function RegistrationsListPage() {
               }}
             />
             <select
-              className="app-select mt-0 w-full shrink-0 sm:w-44"
+              className="app-select mt-0 w-full"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -238,6 +262,21 @@ export default function RegistrationsListPage() {
               {statusOptions.map((s) => (
                 <option key={s} value={s}>
                   {formatStatusLabel(s)}
+                </option>
+              ))}
+            </select>
+            <select
+              className="app-select mt-0 w-full"
+              value={clientTypeFilter}
+              onChange={(e) => {
+                setClientTypeFilter(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">Todos os tipos</option>
+              {clientTypeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
                 </option>
               ))}
             </select>
@@ -394,7 +433,9 @@ export default function RegistrationsListPage() {
             <p className="text-xs text-[var(--muted)]">
               {meta.total === 0
                 ? "Nenhum registro para exibir."
-                : `Mostrando ${recordsStart} a ${recordsEnd} de ${meta.total} registros`}
+                : hasActiveFilters && globalTotal !== meta.total
+                  ? `Mostrando ${recordsStart} a ${recordsEnd} de ${meta.total} registros filtrados`
+                  : `Mostrando ${recordsStart} a ${recordsEnd} de ${meta.total} registros`}
             </p>
 
             <div className="flex items-center gap-2">
