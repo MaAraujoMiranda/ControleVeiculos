@@ -49,6 +49,7 @@ export interface ClientOption {
   id: string;
   name: string;
   company: string | null;
+  clientType: string | null;
   cpf: string;
   phone: string;
 }
@@ -67,6 +68,7 @@ export interface ClientRecord {
   id: string;
   name: string;
   company: string | null;
+  clientType: string | null;
   phone: string;
   cpf: string;
   photoUrl: string | null;
@@ -124,6 +126,7 @@ export interface DashboardStats {
 export interface ClientPayload {
   name?: string;
   company?: string;
+  clientType?: string;
   phone?: string;
   cpf?: string;
   photoUrl?: string;

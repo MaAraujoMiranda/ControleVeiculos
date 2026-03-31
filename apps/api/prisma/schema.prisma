@@ -71,6 +71,7 @@ model Client {
   cpf             String         @db.VarChar(14)
   cpfDigits       String         @db.Char(11)
   photoUrl        String?        @db.MediumText
+  clientType      String?        @db.VarChar(30)
   notes           String?        @db.Text
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

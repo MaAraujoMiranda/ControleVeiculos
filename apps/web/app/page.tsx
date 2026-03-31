@@ -40,6 +40,10 @@ function getRegistrationVehicles(reg: RegistrationRecord) {
   ];
 }
 
+function getRegistrationPhoto(reg: RegistrationRecord) {
+  return reg.vehicle.photoUrl ?? reg.vehicle2?.photoUrl ?? null;
+}
+
 function RowActionButton({
   title,
   tone = "default",
@@ -405,14 +409,27 @@ export default function DashboardPage() {
                   {/* Cliente + veículo */}
                   <div className="flex items-center gap-4 min-w-0">
                     {/* Avatar */}
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">
-                      {reg.client.name.slice(0, 2).toUpperCase()}
-                    </div>
+                    {getRegistrationPhoto(reg) ? (
+                      <img
+                        src={getRegistrationPhoto(reg) ?? ""}
+                        alt={`Foto do veículo de ${reg.client.name || "cliente"}`}
+                        className="h-10 w-10 shrink-0 rounded-lg border border-[var(--border)] object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-sm font-bold text-[var(--accent)]">
+                        {reg.client.name.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
 
                     <div className="min-w-0">
                       <p className="font-semibold text-[var(--foreground)] truncate">
                         {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
+                      {reg.client.clientType && (
+                        <p className="mt-0.5 text-xs text-[var(--muted)]">
+                          Tipo: {reg.client.clientType}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-xs text-[var(--muted)]">
                         {getRegistrationVehicles(reg).map((vehicle, index) => (
                           <span key={`${reg.id}-vehicle-${index}`}>

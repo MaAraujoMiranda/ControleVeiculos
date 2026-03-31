@@ -1,0 +1,1 @@
+ALTER TABLE Client ADD COLUMN clientType VARCHAR(30) NULL;

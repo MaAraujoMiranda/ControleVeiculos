@@ -21,6 +21,14 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { QueryClientsDto } from './dto/query-clients.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
+const CLIENT_TYPES = [
+  'Proprietario',
+  'Socio',
+  'Funcionario',
+  'Mensalista',
+  'Sala',
+] as const;
+
 @Injectable()
 export class ClientsService {
   constructor(
@@ -253,6 +261,7 @@ export class ClientsService {
     }
 
     const cpfDigits = cpf.length > 0 ? normalizeDigits(cpf) : '';
+    const clientType = this.normalizeClientType(dto.clientType);
 
     return {
       name,
@@ -263,6 +272,7 @@ export class ClientsService {
       cpf: cpfDigits ? formatCpf(cpfDigits) : '',
       cpfDigits,
       photoUrl: nullableTrim(dto.photoUrl),
+      clientType,
       notes: nullableTrim(dto.notes),
     } satisfies Prisma.ClientUncheckedCreateInput;
   }
@@ -309,10 +319,34 @@ export class ClientsService {
       data.photoUrl = nullableTrim(dto.photoUrl);
     }
 
+    if (dto.clientType !== undefined) {
+      data.clientType = this.normalizeClientType(dto.clientType);
+    }
+
     if (dto.notes !== undefined) {
       data.notes = nullableTrim(dto.notes);
     }
 
     return data;
+  }
+
+  private normalizeClientType(value?: string | null) {
+    const raw = cleanString(value ?? '');
+
+    if (!raw) {
+      return null;
+    }
+
+    const matched = CLIENT_TYPES.find(
+      (item) => item.toLowerCase() === raw.toLowerCase(),
+    );
+
+    if (!matched) {
+      throw new BadRequestException(
+        'Tipo de cliente invalido. Use: Proprietario, Socio, Funcionario, Mensalista ou Sala.',
+      );
+    }
+
+    return matched;
   }
 }

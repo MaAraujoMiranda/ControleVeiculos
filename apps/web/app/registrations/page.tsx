@@ -19,6 +19,7 @@ type Mode = "create" | "edit";
 interface ClientForm {
   name: string;
   company: string;
+  clientType: string;
   phone: string;
   cpf: string;
   photoUrl: string;
@@ -43,6 +44,7 @@ interface RegForm {
 const emptyClient: ClientForm = {
   name: "",
   company: "",
+  clientType: "",
   phone: "",
   cpf: "",
   photoUrl: "",
@@ -65,6 +67,13 @@ const emptyReg: RegForm = {
 };
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
+const clientTypeOptions = [
+  "Proprietario",
+  "Socio",
+  "Funcionario",
+  "Mensalista",
+  "Sala",
+] as const;
 
 /* ── Máscaras de input ───────────────────────────────────────── */
 
@@ -384,6 +393,7 @@ export default function RegistrationsPage() {
         setClientForm({
           name: fullClient.name,
           company: fullClient.company ?? "",
+          clientType: fullClient.clientType ?? "",
           phone: maskPhone(fullClient.phone),
           cpf: maskCpf(fullClient.cpf),
           photoUrl: fullClient.photoUrl ?? "",
@@ -451,6 +461,7 @@ export default function RegistrationsPage() {
       const client = await api.createClient({
         name: clientForm.name || undefined,
         company: clientForm.company || undefined,
+        clientType: clientForm.clientType || undefined,
         phone: clientForm.phone || undefined,
         cpf: clientForm.cpf || undefined,
         photoUrl: clientForm.photoUrl || undefined,
@@ -534,6 +545,7 @@ export default function RegistrationsPage() {
         api.updateClient(editingReg.clientId, {
           name: clientForm.name || undefined,
           company: clientForm.company || undefined,
+          clientType: clientForm.clientType || undefined,
           phone: clientForm.phone || undefined,
           cpf: clientForm.cpf || undefined,
           photoUrl: clientForm.photoUrl || undefined,
@@ -672,6 +684,26 @@ export default function RegistrationsPage() {
                         }
                         placeholder="Ex: AMR Construtora"
                       />
+                    </label>
+                    <label className="block">
+                      <span className="app-label">Tipo de cliente</span>
+                      <select
+                        className="app-select"
+                        value={clientForm.clientType}
+                        onChange={(e) =>
+                          setClientForm((f) => ({
+                            ...f,
+                            clientType: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecione...</option>
+                        {clientTypeOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">
@@ -964,6 +996,26 @@ export default function RegistrationsPage() {
                         }
                         placeholder="Ex: AMR Construtora"
                       />
+                    </label>
+                    <label className="block">
+                      <span className="app-label">Tipo de cliente</span>
+                      <select
+                        className="app-select"
+                        value={clientForm.clientType}
+                        onChange={(e) =>
+                          setClientForm((f) => ({
+                            ...f,
+                            clientType: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecione...</option>
+                        {clientTypeOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="block">

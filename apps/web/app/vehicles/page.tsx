@@ -64,6 +64,7 @@ export default function VehiclesPage() {
         response.data.map((client) => ({
           id: client.id,
           name: client.name,
+          clientType: client.clientType,
           cpf: client.cpf,
           phone: client.phone,
           company: client.company,
@@ -155,6 +156,7 @@ export default function VehiclesPage() {
           clientsResponse.data.map((client) => ({
             id: client.id,
             name: client.name,
+            clientType: client.clientType,
             cpf: client.cpf,
             phone: client.phone,
             company: client.company,

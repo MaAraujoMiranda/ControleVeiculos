@@ -36,6 +36,10 @@ function getRegistrationVehicles(reg: RegistrationRecord) {
   ];
 }
 
+function getRegistrationPhoto(reg: RegistrationRecord) {
+  return reg.vehicle.photoUrl ?? reg.vehicle2?.photoUrl ?? null;
+}
+
 function RowActionButton({
   title,
   tone = "default",
@@ -280,14 +284,27 @@ export default function RegistrationsListPage() {
                   >
                     <td>
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent)]">
-                          {reg.client.name.slice(0, 2).toUpperCase()}
-                        </div>
+                        {getRegistrationPhoto(reg) ? (
+                          <img
+                            src={getRegistrationPhoto(reg) ?? ""}
+                            alt={`Foto do veículo de ${reg.client.name || "cliente"}`}
+                            className="h-9 w-9 shrink-0 rounded-lg border border-[var(--border)] object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-xs font-bold text-[var(--accent)]">
+                            {reg.client.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
                         <div>
                           <p className="font-semibold">{reg.client.name}</p>
                           {reg.client.company && (
                             <p className="text-xs text-[var(--muted)]">
                               {reg.client.company}
+                            </p>
+                          )}
+                          {reg.client.clientType && (
+                            <p className="text-xs text-[var(--muted)]">
+                              Tipo: {reg.client.clientType}
                             </p>
                           )}
                           <p className="text-xs text-[var(--muted)]">

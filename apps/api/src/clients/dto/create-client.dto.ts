@@ -1,4 +1,12 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+
+const CLIENT_TYPES = [
+  'Proprietario',
+  'Socio',
+  'Funcionario',
+  'Mensalista',
+  'Sala',
+] as const;
 
 export class CreateClientDto {
   @IsOptional()
@@ -24,6 +32,12 @@ export class CreateClientDto {
   @IsOptional()
   @IsString()
   photoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(CLIENT_TYPES)
+  @MaxLength(30)
+  clientType?: string;
 
   @IsOptional()
   @IsString()

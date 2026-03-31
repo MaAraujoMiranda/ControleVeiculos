@@ -265,6 +265,7 @@ export default function ViewRegistrationPage() {
               <div className="min-w-0 flex-1 space-y-3">
                 <InfoRow label="Nome completo" value={client.name} />
                 {client.company && <InfoRow label="Empresa" value={client.company} />}
+                <InfoRow label="Tipo de cliente" value={client.clientType} />
                 <div className="grid grid-cols-2 gap-3">
                   <InfoRow label="CPF" value={client.cpf} />
                   <InfoRow label="Telefone" value={client.phone} />
