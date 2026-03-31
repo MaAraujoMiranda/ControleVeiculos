@@ -44,6 +44,14 @@ function getRegistrationPhoto(reg: RegistrationRecord) {
   return reg.vehicle.photoUrl ?? reg.vehicle2?.photoUrl ?? null;
 }
 
+function getClientSubtitle(
+  company?: string | null,
+  clientType?: string | null,
+  clientModality?: string | null,
+) {
+  return [company, clientType, clientModality].filter(Boolean).join(" - ");
+}
+
 function RowActionButton({
   title,
   tone = "default",
@@ -425,11 +433,17 @@ export default function DashboardPage() {
                       <p className="font-semibold text-[var(--foreground)] truncate">
                         {reg.client.name}{reg.client.company ? ` — ${reg.client.company}` : ""}
                       </p>
-                      {(reg.client.company || reg.client.clientType) && (
+                      {getClientSubtitle(
+                        reg.client.company,
+                        reg.client.clientType,
+                        reg.client.clientModality,
+                      ) && (
                         <p className="mt-0.5 text-xs text-[var(--muted)]">
-                          {reg.client.company ?? ""}
-                          {reg.client.company && reg.client.clientType ? " - " : ""}
-                          {reg.client.clientType ?? ""}
+                          {getClientSubtitle(
+                            reg.client.company,
+                            reg.client.clientType,
+                            reg.client.clientModality,
+                          )}
                         </p>
                       )}
                       <p className="mt-0.5 text-xs text-[var(--muted)]">

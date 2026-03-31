@@ -9,14 +9,12 @@ import { formatDateTime, formatStatusLabel } from "../../../lib/format";
 import type { PaginationMeta, RegistrationRecord } from "../../../lib/types";
 
 const statusOptions = ["ACTIVE", "INACTIVE"] as const;
-const clientTypeOptions = [
-  "Proprietario",
-  "Socio",
-  "Funcionario",
-  "Mensalista",
-  "Sala",
-] as const;
+const clientModalityOptions = ["Mensalista", "Sala"] as const;
 const REGISTRATIONS_PAGE_SIZE = 30;
+
+function getClientSubtitle(company?: string | null, clientType?: string | null, clientModality?: string | null) {
+  return [company, clientType, clientModality].filter(Boolean).join(" - ");
+}
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -85,7 +83,7 @@ export default function RegistrationsListPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [clientTypeFilter, setClientTypeFilter] = useState("");
+  const [clientModalityFilter, setClientModalityFilter] = useState("");
   const [records, setRecords] = useState<RegistrationRecord[]>([]);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -103,7 +101,7 @@ export default function RegistrationsListPage() {
       const res = await api.listRegistrations({
         q: search || undefined,
         status: statusFilter || undefined,
-        clientType: clientTypeFilter || undefined,
+        clientModality: clientModalityFilter || undefined,
         page,
         pageSize: REGISTRATIONS_PAGE_SIZE,
       });
@@ -125,7 +123,7 @@ export default function RegistrationsListPage() {
 
   useEffect(() => {
     void loadRegistrations();
-  }, [search, page, statusFilter, clientTypeFilter]);
+  }, [search, page, statusFilter, clientModalityFilter]);
 
   async function toggleStatus(reg: RegistrationRecord) {
     const next = reg.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
@@ -160,7 +158,7 @@ export default function RegistrationsListPage() {
   const recordsStart = meta && meta.total > 0 ? (meta.page - 1) * meta.pageSize + 1 : 0;
   const recordsEnd = meta && meta.total > 0 ? Math.min(meta.page * meta.pageSize, meta.total) : 0;
   const hasActiveFilters = Boolean(
-    search.trim() || statusFilter || clientTypeFilter,
+    search.trim() || statusFilter || clientModalityFilter,
   );
   const globalTotal = meta?.globalTotal ?? meta?.total ?? 0;
   const filteredTotal = meta?.total ?? 0;
@@ -267,14 +265,14 @@ export default function RegistrationsListPage() {
             </select>
             <select
               className="app-select mt-0 w-full"
-              value={clientTypeFilter}
+              value={clientModalityFilter}
               onChange={(e) => {
-                setClientTypeFilter(e.target.value);
+                setClientModalityFilter(e.target.value);
                 setPage(1);
               }}
             >
-              <option value="">Todos os tipos</option>
-              {clientTypeOptions.map((option) => (
+              <option value="">Todas as modalidades</option>
+              {clientModalityOptions.map((option) => (
                 <option key={option} value={option}>
                   {option}
                 </option>
@@ -336,13 +334,19 @@ export default function RegistrationsListPage() {
                         )}
                         <div>
                           <p className="font-semibold">{reg.client.name}</p>
-                          {(reg.client.company || reg.client.clientType) && (
+                          {getClientSubtitle(
+                            reg.client.company,
+                            reg.client.clientType,
+                            reg.client.clientModality,
+                          ) && (
                             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[var(--muted)]">
-                              {reg.client.company && <span>{reg.client.company}</span>}
-                              {reg.client.company && reg.client.clientType && (
-                                <span aria-hidden> - </span>
-                              )}
-                              {reg.client.clientType && <span>{reg.client.clientType}</span>}
+                              <span>
+                                {getClientSubtitle(
+                                  reg.client.company,
+                                  reg.client.clientType,
+                                  reg.client.clientModality,
+                                )}
+                              </span>
                             </div>
                           )}
                         </div>

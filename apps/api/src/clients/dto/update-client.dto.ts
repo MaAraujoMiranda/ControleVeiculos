@@ -4,6 +4,9 @@ const CLIENT_TYPES = [
   'Proprietario',
   'Socio',
   'Funcionario',
+] as const;
+
+const CLIENT_MODALITIES = [
   'Mensalista',
   'Sala',
 ] as const;
@@ -38,6 +41,12 @@ export class UpdateClientDto {
   @IsIn(CLIENT_TYPES)
   @MaxLength(30)
   clientType?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(CLIENT_MODALITIES)
+  @MaxLength(30)
+  clientModality?: string;
 
   @IsOptional()
   @IsString()

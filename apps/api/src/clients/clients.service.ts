@@ -25,6 +25,9 @@ const CLIENT_TYPES = [
   'Proprietario',
   'Socio',
   'Funcionario',
+] as const;
+
+const CLIENT_MODALITIES = [
   'Mensalista',
   'Sala',
 ] as const;
@@ -262,6 +265,7 @@ export class ClientsService {
 
     const cpfDigits = cpf.length > 0 ? normalizeDigits(cpf) : '';
     const clientType = this.normalizeClientType(dto.clientType);
+    const clientModality = this.normalizeClientModality(dto.clientModality);
 
     return {
       name,
@@ -273,6 +277,7 @@ export class ClientsService {
       cpfDigits,
       photoUrl: nullableTrim(dto.photoUrl),
       clientType,
+      clientModality,
       notes: nullableTrim(dto.notes),
     } satisfies Prisma.ClientUncheckedCreateInput;
   }
@@ -323,6 +328,10 @@ export class ClientsService {
       data.clientType = this.normalizeClientType(dto.clientType);
     }
 
+    if (dto.clientModality !== undefined) {
+      data.clientModality = this.normalizeClientModality(dto.clientModality);
+    }
+
     if (dto.notes !== undefined) {
       data.notes = nullableTrim(dto.notes);
     }
@@ -343,7 +352,27 @@ export class ClientsService {
 
     if (!matched) {
       throw new BadRequestException(
-        'Tipo de cliente invalido. Use: Proprietario, Socio, Funcionario, Mensalista ou Sala.',
+        'Tipo de cliente invalido. Use: Proprietario, Socio ou Funcionario.',
+      );
+    }
+
+    return matched;
+  }
+
+  private normalizeClientModality(value?: string | null) {
+    const raw = cleanString(value ?? '');
+
+    if (!raw) {
+      return null;
+    }
+
+    const matched = CLIENT_MODALITIES.find(
+      (item) => item.toLowerCase() === raw.toLowerCase(),
+    );
+
+    if (!matched) {
+      throw new BadRequestException(
+        'Tipo de modalidade invalido. Use: Mensalista ou Sala.',
       );
     }
 

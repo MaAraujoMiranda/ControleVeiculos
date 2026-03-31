@@ -57,10 +57,10 @@ export class RegistrationsService {
       filters.push({ status: query.status });
     }
 
-    if (query.clientType) {
+    if (query.clientModality) {
       filters.push({
         client: {
-          clientType: query.clientType,
+          clientModality: query.clientModality,
         },
       });
     }
@@ -130,6 +130,7 @@ export class RegistrationsService {
               name: true,
               company: true,
               clientType: true,
+              clientModality: true,
             },
           },
           vehicle: {

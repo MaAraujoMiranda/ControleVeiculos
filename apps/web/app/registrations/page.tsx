@@ -20,6 +20,7 @@ interface ClientForm {
   name: string;
   company: string;
   clientType: string;
+  clientModality: string;
   phone: string;
   cpf: string;
   photoUrl: string;
@@ -45,6 +46,7 @@ const emptyClient: ClientForm = {
   name: "",
   company: "",
   clientType: "",
+  clientModality: "",
   phone: "",
   cpf: "",
   photoUrl: "",
@@ -71,9 +73,8 @@ const clientTypeOptions = [
   "Proprietario",
   "Socio",
   "Funcionario",
-  "Mensalista",
-  "Sala",
 ] as const;
+const clientModalityOptions = ["Mensalista", "Sala"] as const;
 const IMAGE_INLINE_SOFT_LIMIT_BYTES = 220 * 1024;
 const IMAGE_MAX_DIMENSION = 1600;
 const IMAGE_OUTPUT_QUALITY = 0.82;
@@ -451,6 +452,7 @@ export default function RegistrationsPage() {
           name: fullClient.name,
           company: fullClient.company ?? "",
           clientType: fullClient.clientType ?? "",
+          clientModality: fullClient.clientModality ?? "",
           phone: maskPhone(fullClient.phone),
           cpf: maskCpf(fullClient.cpf),
           photoUrl: fullClient.photoUrl ?? "",
@@ -519,6 +521,7 @@ export default function RegistrationsPage() {
         name: clientForm.name || undefined,
         company: clientForm.company || undefined,
         clientType: clientForm.clientType || undefined,
+        clientModality: clientForm.clientModality || undefined,
         phone: clientForm.phone || undefined,
         cpf: clientForm.cpf || undefined,
         photoUrl: clientForm.photoUrl || undefined,
@@ -603,6 +606,7 @@ export default function RegistrationsPage() {
           name: clientForm.name || undefined,
           company: clientForm.company || undefined,
           clientType: clientForm.clientType || undefined,
+          clientModality: clientForm.clientModality || undefined,
           phone: clientForm.phone || undefined,
           cpf: clientForm.cpf || undefined,
           photoUrl: clientForm.photoUrl || undefined,
@@ -756,6 +760,26 @@ export default function RegistrationsPage() {
                       >
                         <option value="">Selecione...</option>
                         {clientTypeOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="app-label">Tipo de modalidade</span>
+                      <select
+                        className="app-select"
+                        value={clientForm.clientModality}
+                        onChange={(e) =>
+                          setClientForm((f) => ({
+                            ...f,
+                            clientModality: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecione...</option>
+                        {clientModalityOptions.map((option) => (
                           <option key={option} value={option}>
                             {option}
                           </option>
@@ -1068,6 +1092,26 @@ export default function RegistrationsPage() {
                       >
                         <option value="">Selecione...</option>
                         {clientTypeOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="app-label">Tipo de modalidade</span>
+                      <select
+                        className="app-select"
+                        value={clientForm.clientModality}
+                        onChange={(e) =>
+                          setClientForm((f) => ({
+                            ...f,
+                            clientModality: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Selecione...</option>
+                        {clientModalityOptions.map((option) => (
                           <option key={option} value={option}>
                             {option}
                           </option>

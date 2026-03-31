@@ -248,7 +248,7 @@ export const api = {
     clientId?: string;
     vehicleId?: string;
     status?: string;
-    clientType?: string;
+    clientModality?: string;
     page?: number;
     pageSize?: number;
   }) {

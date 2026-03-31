@@ -51,6 +51,7 @@ export interface ClientOption {
   name: string;
   company: string | null;
   clientType: string | null;
+  clientModality: string | null;
   cpf: string;
   phone: string;
 }
@@ -70,6 +71,7 @@ export interface ClientRecord {
   name: string;
   company: string | null;
   clientType: string | null;
+  clientModality: string | null;
   phone: string;
   cpf: string;
   photoUrl: string | null;
@@ -128,6 +130,7 @@ export interface ClientPayload {
   name?: string;
   company?: string;
   clientType?: string;
+  clientModality?: string;
   phone?: string;
   cpf?: string;
   photoUrl?: string;
