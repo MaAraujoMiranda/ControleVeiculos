@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AuditAction, Prisma, RegistrationStatus } from '@prisma/client';
+import sharp from 'sharp';
 import { AuditService } from '../audit/audit.service';
 import {
   cleanString,
@@ -20,8 +21,14 @@ import { CreateRegistrationDto } from './dto/create-registration.dto';
 import { QueryRegistrationsDto } from './dto/query-registrations.dto';
 import { UpdateRegistrationDto } from './dto/update-registration.dto';
 
+const LIST_PHOTO_MAX_INLINE_CHARS = 120_000;
+const LIST_PHOTO_SIZE = 160;
+const LIST_PHOTO_QUALITY = 68;
+
 @Injectable()
 export class RegistrationsService {
+  private readonly listPhotoCache = new Map<string, string>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
@@ -107,18 +114,68 @@ export class RegistrationsService {
         orderBy: [{ createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
-        include: {
-          client: true,
-          vehicle: true,
-          vehicle2: true,
+        select: {
+          id: true,
+          clientId: true,
+          vehicleId: true,
+          vehicle2Id: true,
+          cardNumber: true,
+          trSl: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              company: true,
+              clientType: true,
+            },
+          },
+          vehicle: {
+            select: {
+              id: true,
+              clientId: true,
+              plate: true,
+              brandModel: true,
+              photoUrl: true,
+            },
+          },
+          vehicle2: {
+            select: {
+              id: true,
+              clientId: true,
+              plate: true,
+              brandModel: true,
+              photoUrl: true,
+            },
+          },
         },
       }),
       this.prisma.registration.count({ where }),
       this.prisma.registration.count({ where: baseWhere }),
     ]);
 
+    const listData = await Promise.all(
+      data.map(async (registration) => ({
+        ...registration,
+        vehicle: {
+          ...registration.vehicle,
+          photoUrl: await this.getListPhotoUrl(registration.vehicle.photoUrl),
+        },
+        vehicle2: registration.vehicle2
+          ? {
+              ...registration.vehicle2,
+              photoUrl: await this.getListPhotoUrl(
+                registration.vehicle2.photoUrl,
+              ),
+            }
+          : null,
+      })),
+    );
+
     return {
-      data,
+      data: listData,
       meta: {
         ...buildPaginationMeta(total, page, pageSize),
         globalTotal,
@@ -406,5 +463,77 @@ export class RegistrationsService {
     }
 
     return data;
+  }
+
+  private async getListPhotoUrl(photoUrl?: string | null) {
+    if (!photoUrl) {
+      return null;
+    }
+
+    if (!photoUrl.startsWith('data:image/')) {
+      return photoUrl;
+    }
+
+    if (photoUrl.length <= LIST_PHOTO_MAX_INLINE_CHARS) {
+      return photoUrl;
+    }
+
+    const cached = this.listPhotoCache.get(photoUrl);
+    if (cached) {
+      return cached;
+    }
+
+    const parsed = this.parseDataUrl(photoUrl);
+    if (!parsed) {
+      return null;
+    }
+
+    try {
+      const thumbnail = await sharp(Buffer.from(parsed.base64, 'base64'))
+        .rotate()
+        .resize(LIST_PHOTO_SIZE, LIST_PHOTO_SIZE, {
+          fit: 'cover',
+          position: 'attention',
+        })
+        .jpeg({
+          quality: LIST_PHOTO_QUALITY,
+          mozjpeg: true,
+        })
+        .toBuffer();
+
+      const thumbnailUrl = `data:image/jpeg;base64,${thumbnail.toString(
+        'base64',
+      )}`;
+
+      this.rememberListPhoto(photoUrl, thumbnailUrl);
+
+      return thumbnailUrl;
+    } catch {
+      return null;
+    }
+  }
+
+  private parseDataUrl(dataUrl: string) {
+    const match = /^data:(.+?);base64,(.+)$/s.exec(dataUrl);
+
+    if (!match) {
+      return null;
+    }
+
+    return {
+      mimeType: match[1],
+      base64: match[2],
+    };
+  }
+
+  private rememberListPhoto(original: string, thumbnail: string) {
+    if (this.listPhotoCache.size >= 200) {
+      const firstKey = this.listPhotoCache.keys().next().value;
+      if (firstKey) {
+        this.listPhotoCache.delete(firstKey);
+      }
+    }
+
+    this.listPhotoCache.set(original, thumbnail);
   }
 }

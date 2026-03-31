@@ -74,6 +74,9 @@ const clientTypeOptions = [
   "Mensalista",
   "Sala",
 ] as const;
+const IMAGE_INLINE_SOFT_LIMIT_BYTES = 220 * 1024;
+const IMAGE_MAX_DIMENSION = 1600;
+const IMAGE_OUTPUT_QUALITY = 0.82;
 
 /* ── Máscaras de input ───────────────────────────────────────── */
 
@@ -143,6 +146,56 @@ function isValidCpf(v: string) {
   return digits[9] === String(firstDigit) && digits[10] === String(secondDigit);
 }
 
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = (event) => resolve((event.target?.result as string) ?? "");
+    reader.onerror = () =>
+      reject(reader.error ?? new Error("Falha ao ler a imagem."));
+
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Falha ao abrir a imagem."));
+    image.src = dataUrl;
+  });
+}
+
+async function optimizeImageForUpload(file: File) {
+  const originalDataUrl = await readFileAsDataUrl(file);
+
+  if (!file.type.startsWith("image/") || file.size <= IMAGE_INLINE_SOFT_LIMIT_BYTES) {
+    return originalDataUrl;
+  }
+
+  const image = await loadImage(originalDataUrl);
+  const largestSide = Math.max(image.width, image.height);
+  const scale =
+    largestSide > IMAGE_MAX_DIMENSION ? IMAGE_MAX_DIMENSION / largestSide : 1;
+  const canvas = document.createElement("canvas");
+
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return originalDataUrl;
+  }
+
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL("image/jpeg", IMAGE_OUTPUT_QUALITY);
+}
+
 /* ── Componente: upload de foto ──────────────────────────────── */
 
 function PhotoPicker({
@@ -156,10 +209,12 @@ function PhotoPicker({
 }) {
   const ref = useRef<HTMLInputElement>(null);
 
-  function readFile(file: File) {
-    const reader = new FileReader();
-    reader.onload = (ev) => onChange((ev.target?.result as string) ?? "");
-    reader.readAsDataURL(file);
+  async function readFile(file: File) {
+    try {
+      onChange(await optimizeImageForUpload(file));
+    } catch {
+      onChange(await readFileAsDataUrl(file));
+    }
   }
 
   return (
@@ -206,9 +261,11 @@ function PhotoPicker({
         type="file"
         accept="image/*"
         className="sr-only"
-        onChange={(e) => {
+        onChange={async (e) => {
           const file = e.target.files?.[0];
-          if (file) readFile(file);
+          if (file) {
+            await readFile(file);
+          }
         }}
       />
     </button>
