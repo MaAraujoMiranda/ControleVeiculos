@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -23,7 +26,35 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
-  if (!open) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !busy) {
+        onCancel();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [busy, onCancel, open]);
+
+  if (!open || !mounted) {
     return null;
   }
 
@@ -33,11 +64,11 @@ export function ConfirmDialog({
       ? "app-button-secondary border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger-soft)]"
       : "app-button-primary";
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={onCancel}
         aria-label="Fechar confirmação"
       />
@@ -63,6 +94,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
