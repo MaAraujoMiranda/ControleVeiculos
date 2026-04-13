@@ -88,16 +88,34 @@ export class RegistrationsService {
           },
           {
             vehicle: {
-              plateNormalized: {
-                contains: plateQuery ?? undefined,
-              },
+              OR: [
+                {
+                  plateNormalized: {
+                    contains: plateQuery ?? undefined,
+                  },
+                },
+                {
+                  brandModel: {
+                    contains: q,
+                  },
+                },
+              ],
             },
           },
           {
             vehicle2: {
-              plateNormalized: {
-                contains: plateQuery ?? undefined,
-              },
+              OR: [
+                {
+                  plateNormalized: {
+                    contains: plateQuery ?? undefined,
+                  },
+                },
+                {
+                  brandModel: {
+                    contains: q,
+                  },
+                },
+              ],
             },
           },
         ],

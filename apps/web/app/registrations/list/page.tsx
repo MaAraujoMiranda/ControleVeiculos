@@ -224,7 +224,7 @@ export default function RegistrationsListPage() {
               Cadastros
             </p>
             <p className="text-sm text-[var(--muted)]">
-              Busca por nome, empresa, placa (incluindo 2º veículo), cartão ou TR SL.
+              Busca por nome, empresa, placa, modelo (incluindo 2º veículo), cartão ou TR SL.
             </p>
             {meta && (
               <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--muted)]">
@@ -241,7 +241,7 @@ export default function RegistrationsListPage() {
           <div className="grid w-full gap-2 sm:grid-cols-2 xl:max-w-[760px] xl:flex-1 xl:grid-cols-[minmax(0,1fr)_180px_190px]">
             <input
               className="app-input mt-0 w-full sm:col-span-2 xl:col-span-1"
-              placeholder="Buscar por nome, empresa, placa, cartão ou TR SL..."
+              placeholder="Buscar por nome, empresa, placa, modelo, cartão ou TR SL..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);

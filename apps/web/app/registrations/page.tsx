@@ -2,13 +2,15 @@
 
 import {
   type FormEvent,
+  type RefObject,
   useEffect,
   useRef,
   useState,
   useTransition,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, getErrorMessage } from "../../lib/api";
+import { ConfirmDialog } from "../../components/confirm-dialog";
+import { ApiError, api, getErrorMessage } from "../../lib/api";
 import { formatStatusLabel } from "../../lib/format";
 import type { RegistrationRecord } from "../../lib/types";
 
@@ -40,6 +42,14 @@ interface RegForm {
   trSl: string;
   status: "ACTIVE" | "INACTIVE";
   observations: string;
+}
+
+interface DuplicatePlateNotice {
+  plate: string;
+  ownerName: string;
+  ownerCompany: string | null;
+  vehicleModel: string | null;
+  target: "primary" | "secondary";
 }
 
 const emptyClient: ClientForm = {
@@ -303,10 +313,12 @@ function VehicleFormFields({
   form,
   setForm,
   plateInvalid = false,
+  plateInputRef,
 }: {
   form: VehicleForm;
   setForm: React.Dispatch<React.SetStateAction<VehicleForm>>;
   plateInvalid?: boolean;
+  plateInputRef?: RefObject<HTMLInputElement | null>;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start">
@@ -319,6 +331,7 @@ function VehicleFormFields({
         <label className="block">
           <span className="app-label">Placa</span>
           <input
+            ref={plateInputRef}
             className={`app-input font-mono uppercase tracking-widest ${
               plateInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""
             }`}
@@ -371,6 +384,15 @@ function VehicleFormFields({
   );
 }
 
+function buildDuplicatePlateDescription(notice: DuplicatePlateNotice) {
+  const owner = notice.ownerCompany
+    ? `${notice.ownerName} - ${notice.ownerCompany}`
+    : notice.ownerName;
+  const model = notice.vehicleModel ? ` Veiculo: ${notice.vehicleModel}.` : "";
+
+  return `A placa ${notice.plate} ja esta sendo usada por ${owner}.${model} Informe outra placa para continuar.`;
+}
+
 /* ── Página principal ────────────────────────────────────────── */
 
 export default function RegistrationsPage() {
@@ -381,7 +403,11 @@ export default function RegistrationsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [duplicatePlateNotice, setDuplicatePlateNotice] =
+    useState<DuplicatePlateNotice | null>(null);
   const [, startTransition] = useTransition();
+  const primaryPlateInputRef = useRef<HTMLInputElement>(null);
+  const secondaryPlateInputRef = useRef<HTMLInputElement>(null);
 
   const [clientForm, setClientForm] = useState<ClientForm>(emptyClient);
   const [vehicleForm, setVehicleForm] = useState<VehicleForm>(emptyVehicle);
@@ -491,6 +517,129 @@ export default function RegistrationsPage() {
     }
   }
 
+  function focusPlateInput(target: DuplicatePlateNotice["target"]) {
+    const input =
+      target === "secondary"
+        ? secondaryPlateInputRef.current
+        : primaryPlateInputRef.current;
+
+    setDuplicatePlateNotice(null);
+
+    window.setTimeout(() => {
+      input?.scrollIntoView({ behavior: "smooth", block: "center" });
+      input?.focus();
+      input?.select();
+    }, 50);
+  }
+
+  function showDuplicatePlateFromApiError(
+    error: unknown,
+    target: DuplicatePlateNotice["target"],
+  ) {
+    if (!(error instanceof ApiError)) {
+      return false;
+    }
+
+    const details = error.details as
+      | {
+          code?: string;
+          vehicle?: {
+            plate?: string;
+            brandModel?: string | null;
+            client?: {
+              name?: string | null;
+              company?: string | null;
+            };
+          };
+        }
+      | null;
+
+    if (details?.code !== "DUPLICATE_PLATE" || !details.vehicle) {
+      return false;
+    }
+
+    setDuplicatePlateNotice({
+      plate: details.vehicle.plate ?? "informada",
+      ownerName:
+        details.vehicle.client?.name ||
+        details.vehicle.client?.company ||
+        "outro cadastro",
+      ownerCompany: details.vehicle.client?.company ?? null,
+      vehicleModel: details.vehicle.brandModel ?? null,
+      target,
+    });
+
+    return true;
+  }
+
+  async function checkDuplicatePlate(
+    plate: string,
+    target: DuplicatePlateNotice["target"],
+    excludeId?: string | null,
+  ) {
+    const normalized = normalizePlate(plate);
+
+    if (!normalized) {
+      return true;
+    }
+
+    const response = await api.findVehicleByPlate(plate, excludeId ?? undefined);
+
+    if (!response.exists || !response.vehicle) {
+      return true;
+    }
+
+    setDuplicatePlateNotice({
+      plate: response.vehicle.plate,
+      ownerName:
+        response.vehicle.client.name ||
+        response.vehicle.client.company ||
+        "outro cadastro",
+      ownerCompany: response.vehicle.client.company,
+      vehicleModel: response.vehicle.brandModel,
+      target,
+    });
+
+    return false;
+  }
+
+  async function validateDuplicatePlatesBeforeSave() {
+    const primaryPlate = normalizePlate(vehicleForm.plate);
+    const secondaryPlate = hasVehicle2 ? normalizePlate(vehicle2Form.plate) : "";
+
+    if (primaryPlate && secondaryPlate && primaryPlate === secondaryPlate) {
+      setDuplicatePlateNotice({
+        plate: vehicleForm.plate,
+        ownerName: "o primeiro veiculo deste cadastro",
+        ownerCompany: null,
+        vehicleModel: vehicleForm.brandModel || null,
+        target: "secondary",
+      });
+
+      return false;
+    }
+
+    const primaryOk = await checkDuplicatePlate(
+      vehicleForm.plate,
+      "primary",
+      editingReg?.vehicleId,
+    );
+
+    if (!primaryOk) {
+      return false;
+    }
+
+    if (!hasVehicle2 || !vehicle2Form.plate) {
+      return true;
+    }
+
+    return checkDuplicatePlate(
+      vehicle2Form.plate,
+      "secondary",
+      editingReg?.vehicle2Id,
+    );
+  }
+
   /* Criar: cliente → veículo → cadastro em sequência */
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -517,6 +666,10 @@ export default function RegistrationsPage() {
     }
 
     try {
+      if (!(await validateDuplicatePlatesBeforeSave())) {
+        return;
+      }
+
       const client = await api.createClient({
         name: clientForm.name || undefined,
         company: clientForm.company || undefined,
@@ -528,25 +681,46 @@ export default function RegistrationsPage() {
         notes: clientForm.notes || undefined,
       });
 
-      const vehicle = await api.createVehicle({
-        clientId: client.id,
-        plate: vehicleForm.plate,
-        brandModel: vehicleForm.brandModel || undefined,
-        color: vehicleForm.color || undefined,
-        category: vehicleForm.category || undefined,
-        photoUrl: vehicleForm.photoUrl || undefined,
-      });
+      let vehicle;
+
+      try {
+        vehicle = await api.createVehicle({
+          clientId: client.id,
+          plate: vehicleForm.plate,
+          brandModel: vehicleForm.brandModel || undefined,
+          color: vehicleForm.color || undefined,
+          category: vehicleForm.category || undefined,
+          photoUrl: vehicleForm.photoUrl || undefined,
+        });
+      } catch (err) {
+        if (showDuplicatePlateFromApiError(err, "primary")) {
+          return;
+        }
+
+        throw err;
+      }
 
       let vehicle2Id: string | undefined;
       if (hasVehicle2 && vehicle2Form.plate) {
-        const v2 = await api.createVehicle({
-          clientId: client.id,
-          plate: vehicle2Form.plate,
-          brandModel: vehicle2Form.brandModel || undefined,
-          color: vehicle2Form.color || undefined,
-          category: vehicle2Form.category || undefined,
-          photoUrl: vehicle2Form.photoUrl || undefined,
-        });
+        let v2;
+
+        try {
+          v2 = await api.createVehicle({
+            clientId: client.id,
+            plate: vehicle2Form.plate,
+            brandModel: vehicle2Form.brandModel || undefined,
+            color: vehicle2Form.color || undefined,
+            category: vehicle2Form.category || undefined,
+            photoUrl: vehicle2Form.photoUrl || undefined,
+          });
+        } catch (err) {
+          if (showDuplicatePlateFromApiError(err, "secondary")) {
+            return;
+          }
+
+          throw err;
+        }
+
         vehicle2Id = v2.id;
       }
 
@@ -601,6 +775,10 @@ export default function RegistrationsPage() {
     }
 
     try {
+      if (!(await validateDuplicatePlatesBeforeSave())) {
+        return;
+      }
+
       const updatePromises: Promise<unknown>[] = [
         api.updateClient(editingReg.clientId, {
           name: clientForm.name || undefined,
@@ -624,22 +802,41 @@ export default function RegistrationsPage() {
       let vehicle2Id: string | null = editingReg.vehicle2Id;
       if (hasVehicle2 && vehicle2Form.plate) {
         if (editingReg.vehicle2Id) {
-          await api.updateVehicle(editingReg.vehicle2Id, {
-            plate: vehicle2Form.plate,
-            brandModel: vehicle2Form.brandModel || undefined,
-            color: vehicle2Form.color || undefined,
-            category: vehicle2Form.category || undefined,
-            photoUrl: vehicle2Form.photoUrl || undefined,
-          });
+          try {
+            await api.updateVehicle(editingReg.vehicle2Id, {
+              plate: vehicle2Form.plate,
+              brandModel: vehicle2Form.brandModel || undefined,
+              color: vehicle2Form.color || undefined,
+              category: vehicle2Form.category || undefined,
+              photoUrl: vehicle2Form.photoUrl || undefined,
+            });
+          } catch (err) {
+            if (showDuplicatePlateFromApiError(err, "secondary")) {
+              return;
+            }
+
+            throw err;
+          }
         } else {
-          const v2 = await api.createVehicle({
-            clientId: editingReg.clientId,
-            plate: vehicle2Form.plate,
-            brandModel: vehicle2Form.brandModel || undefined,
-            color: vehicle2Form.color || undefined,
-            category: vehicle2Form.category || undefined,
-            photoUrl: vehicle2Form.photoUrl || undefined,
-          });
+          let v2;
+
+          try {
+            v2 = await api.createVehicle({
+              clientId: editingReg.clientId,
+              plate: vehicle2Form.plate,
+              brandModel: vehicle2Form.brandModel || undefined,
+              color: vehicle2Form.color || undefined,
+              category: vehicle2Form.category || undefined,
+              photoUrl: vehicle2Form.photoUrl || undefined,
+            });
+          } catch (err) {
+            if (showDuplicatePlateFromApiError(err, "secondary")) {
+              return;
+            }
+
+            throw err;
+          }
+
           vehicle2Id = v2.id;
         }
       } else if (!hasVehicle2) {
@@ -660,6 +857,10 @@ export default function RegistrationsPage() {
       setSuccess("Cadastro atualizado com sucesso.");
       resetForm();
     } catch (err) {
+      if (showDuplicatePlateFromApiError(err, "primary")) {
+        return;
+      }
+
       setError(getErrorMessage(err));
     } finally {
       setSaving(false);
@@ -669,6 +870,28 @@ export default function RegistrationsPage() {
 
   return (
     <div className="space-y-5">
+      <ConfirmDialog
+        open={!!duplicatePlateNotice}
+        title="Placa ja cadastrada"
+        description={
+          duplicatePlateNotice
+            ? buildDuplicatePlateDescription(duplicatePlateNotice)
+            : ""
+        }
+        confirmLabel="Ok, alterar placa"
+        cancelLabel="Fechar"
+        onCancel={() => {
+          if (duplicatePlateNotice) {
+            focusPlateInput(duplicatePlateNotice.target);
+          }
+        }}
+        onConfirm={() => {
+          if (duplicatePlateNotice) {
+            focusPlateInput(duplicatePlateNotice.target);
+          }
+        }}
+      />
+
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1
@@ -848,6 +1071,7 @@ export default function RegistrationsPage() {
                     <label className="block">
                       <span className="app-label">Placa</span>
                       <input
+                        ref={primaryPlateInputRef}
                         className={`app-input font-mono uppercase tracking-widest ${
                           primaryPlateInvalid ? "border-[var(--danger)] focus:border-[var(--danger)] bg-[var(--danger-soft)]/30" : ""
                         }`}
@@ -926,6 +1150,7 @@ export default function RegistrationsPage() {
                       form={vehicle2Form}
                       setForm={setVehicle2Form}
                       plateInvalid={secondaryPlateInvalid}
+                      plateInputRef={secondaryPlateInputRef}
                     />
                   )}
                 </div>
@@ -1182,6 +1407,7 @@ export default function RegistrationsPage() {
                   form={vehicleForm}
                   setForm={setVehicleForm}
                   plateInvalid={primaryPlateInvalid}
+                  plateInputRef={primaryPlateInputRef}
                 />
               </div>
 
@@ -1207,6 +1433,7 @@ export default function RegistrationsPage() {
                       form={vehicle2Form}
                       setForm={setVehicle2Form}
                       plateInvalid={secondaryPlateInvalid}
+                      plateInputRef={secondaryPlateInputRef}
                     />
                   )}
                 </div>

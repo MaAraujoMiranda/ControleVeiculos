@@ -82,10 +82,32 @@ export class VehiclesService {
     return this.findActiveVehicleOrThrow(id);
   }
 
+  async findVehicleByPlate(plate: string, excludeId?: string) {
+    const plateNormalized = normalizePlate(cleanString(plate ?? ''));
+
+    if (!plateNormalized) {
+      return {
+        exists: false,
+        vehicle: null,
+      };
+    }
+
+    const vehicle = await this.findVehicleByNormalizedPlate(
+      plateNormalized,
+      excludeId,
+    );
+
+    return {
+      exists: !!vehicle,
+      vehicle,
+    };
+  }
+
   async createVehicle(dto: CreateVehicleDto) {
     await this.ensureActiveClient(dto.clientId);
     await this.ensureMultipleVehiclesRule(dto.clientId);
     const payload = this.buildCreateVehicleData(dto);
+    await this.ensurePlateAvailable(payload.plateNormalized);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -129,6 +151,10 @@ export class VehiclesService {
 
     await this.ensureMultipleVehiclesRule(nextClientId, id);
     const payload = this.buildUpdateVehicleData(dto);
+
+    if (dto.plate !== undefined) {
+      await this.ensurePlateAvailable(normalizePlate(cleanString(dto.plate)), id);
+    }
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -265,6 +291,59 @@ export class VehiclesService {
         'A configuracao atual permite apenas um veiculo por cliente.',
       );
     }
+  }
+
+  private async findVehicleByNormalizedPlate(
+    plateNormalized: string,
+    excludeId?: string,
+  ) {
+    return this.prisma.vehicle.findFirst({
+      where: {
+        plateNormalized,
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: {
+        id: true,
+        plate: true,
+        brandModel: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            company: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+  }
+
+  private async ensurePlateAvailable(
+    plateNormalized: string,
+    excludeId?: string,
+  ) {
+    if (!plateNormalized) {
+      return;
+    }
+
+    const existing = await this.findVehicleByNormalizedPlate(
+      plateNormalized,
+      excludeId,
+    );
+
+    if (!existing) {
+      return;
+    }
+
+    const ownerName =
+      existing.client.name || existing.client.company || 'outro cadastro';
+
+    throw new BadRequestException({
+      code: 'DUPLICATE_PLATE',
+      message: `A placa ${existing.plate} ja esta sendo usada por ${ownerName}.`,
+      vehicle: existing,
+    });
   }
 
   private buildCreateVehicleData(dto: CreateVehicleDto) {

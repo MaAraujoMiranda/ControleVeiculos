@@ -9,6 +9,7 @@ import type {
   LicenseRecord,
   LoginPayload,
   ListResponse,
+  PlateLookupResponse,
   DashboardStats,
   RegistrationPayload,
   RegistrationRecord,
@@ -221,6 +222,14 @@ export const api = {
 
   getVehicle(id: string) {
     return apiRequest<VehicleRecord>(`/vehicles/${id}`);
+  },
+
+  findVehicleByPlate(plate: string, excludeId?: string) {
+    return apiRequest<PlateLookupResponse>(
+      "/vehicles/lookup/by-plate",
+      undefined,
+      { plate, excludeId },
+    );
   },
 
   createVehicle(payload: VehiclePayload) {

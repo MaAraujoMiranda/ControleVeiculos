@@ -102,6 +102,20 @@ export interface VehicleRecord {
   registrations?: RegistrationRecord[];
 }
 
+export interface PlateLookupResponse {
+  exists: boolean;
+  vehicle: {
+    id: string;
+    plate: string;
+    brandModel: string | null;
+    client: {
+      id: string;
+      name: string;
+      company: string | null;
+    };
+  } | null;
+}
+
 export interface RegistrationRecord {
   id: string;
   clientId: string;

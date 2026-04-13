@@ -24,6 +24,14 @@ export class VehiclesController {
     return this.vehiclesService.listVehicles(query);
   }
 
+  @Get('lookup/by-plate')
+  findVehicleByPlate(
+    @Query('plate') plate: string,
+    @Query('excludeId') excludeId?: string,
+  ) {
+    return this.vehiclesService.findVehicleByPlate(plate, excludeId);
+  }
+
   @Get(':id')
   getVehicleById(@Param('id') id: string) {
     return this.vehiclesService.getVehicleById(id);
