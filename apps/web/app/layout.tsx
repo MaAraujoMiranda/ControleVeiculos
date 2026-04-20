@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "../components/app-shell";
 import { AuthProvider } from "../components/auth-provider";
+import { APP_NAME } from "../components/brand";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -22,8 +23,18 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Controle de Veículos",
-  description: "Sistema web de controle de veículos, clientes e acessos.",
+  title: {
+    default: APP_NAME,
+    template: `%s | ${APP_NAME}`,
+  },
+  applicationName: APP_NAME,
+  description:
+    "Sistema profissional para controle de veículos, clientes e acessos.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

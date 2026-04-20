@@ -7,6 +7,7 @@ import { api, getErrorMessage } from "../lib/api";
 import { isLicenseBlocked } from "../lib/license";
 import type { LicenseRecord } from "../lib/types";
 import { useAuth } from "./auth-provider";
+import { APP_NAME, APP_TAGLINE, BrandVehicleIcon } from "./brand";
 import { ThemeToggle } from "./theme-toggle";
 
 /* ── Icons ──────────────────────────────────────────────────── */
@@ -415,15 +416,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-[var(--border)] bg-[var(--surface)] lg:flex">
         {/* Brand */}
         <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-4">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent)] text-xs font-bold text-white">
-            CV
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm">
+            <BrandVehicleIcon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold leading-tight text-[var(--foreground)]">
-              Controle de Veículos
+              {APP_NAME}
             </p>
             <p className="text-[11px] text-[var(--muted)]">
-              Sistema operacional
+              {APP_TAGLINE}
             </p>
           </div>
           <ThemeToggle />
@@ -562,11 +563,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Mobile top bar ── */}
       <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 lg:hidden">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-[11px] font-bold text-white">
-            CV
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-white shadow-sm">
+            <BrandVehicleIcon className="h-[18px] w-[18px]" />
           </div>
           <span className="text-sm font-semibold text-[var(--foreground)]">
-            Controle de Veículos
+            {APP_NAME}
           </span>
         </div>
         <div className="flex items-center gap-2">

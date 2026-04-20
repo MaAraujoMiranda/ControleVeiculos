@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api, getErrorMessage } from "../../lib/api";
 import { isLicenseBlocked } from "../../lib/license";
 import { useAuth } from "../../components/auth-provider";
+import { APP_NAME, APP_TAGLINE, BrandVehicleIcon } from "../../components/brand";
 
 const features = [
   {
@@ -91,14 +92,14 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div className="relative flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 bg-white/15 text-sm font-bold text-white backdrop-blur-sm">
-            CV
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/20 bg-white/15 text-white shadow-lg shadow-black/10 backdrop-blur-sm">
+            <BrandVehicleIcon className="h-6 w-6" />
           </div>
           <div>
             <p className="text-sm font-semibold text-white">
-              Controle de Veículos
+              {APP_NAME}
             </p>
-            <p className="text-xs text-indigo-300">Sistema operacional</p>
+            <p className="text-xs text-indigo-300">{APP_TAGLINE}</p>
           </div>
         </div>
 
@@ -153,11 +154,11 @@ export default function LoginPage() {
         <div className="w-full max-w-sm space-y-8">
           {/* Logo mobile */}
           <div className="flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent)] text-xs font-bold text-white">
-              CV
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent)] text-white shadow-sm">
+              <BrandVehicleIcon className="h-5 w-5" />
             </div>
             <span className="text-sm font-semibold text-[var(--foreground)]">
-              Controle de Veículos
+              {APP_NAME}
             </span>
           </div>
 
