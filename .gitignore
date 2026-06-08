@@ -14,7 +14,12 @@ coverage
 
 # logs
 *.log
+logs
 pnpm-debug.log*
+
+# deployment/runtime
+backups
+*.bak_*
 
 # OS / editors
 .DS_Store

@@ -854,8 +854,7 @@ export default function RegistrationsPage() {
         declarationUrl: declarationUrl || null,
       });
 
-      setSuccess("Cadastro atualizado com sucesso.");
-      resetForm();
+      router.replace(`/registrations/${editingReg.id}`);
     } catch (err) {
       if (showDuplicatePlateFromApiError(err, "primary")) {
         return;

@@ -25,6 +25,7 @@ export interface AuthenticatedRequest {
   authSession?: AuthenticatedSession;
   cookies?: Record<string, string>;
   ip?: string;
+  method?: string;
   path?: string;
   url?: string;
   originalUrl?: string;

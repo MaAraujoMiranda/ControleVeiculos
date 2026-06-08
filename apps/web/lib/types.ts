@@ -200,6 +200,7 @@ export interface LicenseRecord {
   id: string;
   status: "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
   expiresAt: string;
+  maintenanceAt: string;
   daysRemaining: number;
   holderName: string | null;
   holderCpf: string | null;

@@ -213,38 +213,37 @@ export class RegistrationsService {
       inactiveClientsRows,
       vehicleRows,
       vehicle2Rows,
-    ] =
-      await this.prisma.$transaction([
-        this.prisma.registration.count({ where: baseWhere }),
-        this.prisma.registration.findMany({
-          where: {
-            ...baseWhere,
-            status: RegistrationStatus.ACTIVE,
+    ] = await this.prisma.$transaction([
+      this.prisma.registration.count({ where: baseWhere }),
+      this.prisma.registration.findMany({
+        where: {
+          ...baseWhere,
+          status: RegistrationStatus.ACTIVE,
+        },
+        select: { clientId: true },
+        distinct: ['clientId'],
+      }),
+      this.prisma.registration.findMany({
+        where: {
+          ...baseWhere,
+          status: {
+            in: [RegistrationStatus.INACTIVE, RegistrationStatus.BLOCKED],
           },
-          select: { clientId: true },
-          distinct: ['clientId'],
-        }),
-        this.prisma.registration.findMany({
-          where: {
-            ...baseWhere,
-            status: {
-              in: [RegistrationStatus.INACTIVE, RegistrationStatus.BLOCKED],
-            },
-          },
-          select: { clientId: true },
-          distinct: ['clientId'],
-        }),
-        this.prisma.registration.findMany({
-          where: baseWhere,
-          select: { vehicleId: true },
-          distinct: ['vehicleId'],
-        }),
-        this.prisma.registration.findMany({
-          where: { ...baseWhere, vehicle2Id: { not: null } },
-          select: { vehicle2Id: true },
-          distinct: ['vehicle2Id'],
-        }),
-      ]);
+        },
+        select: { clientId: true },
+        distinct: ['clientId'],
+      }),
+      this.prisma.registration.findMany({
+        where: baseWhere,
+        select: { vehicleId: true },
+        distinct: ['vehicleId'],
+      }),
+      this.prisma.registration.findMany({
+        where: { ...baseWhere, vehicle2Id: { not: null } },
+        select: { vehicle2Id: true },
+        distinct: ['vehicle2Id'],
+      }),
+    ]);
 
     const activeClientIds = new Set(
       activeClientsRows.map((item) => item.clientId),
@@ -280,6 +279,7 @@ export class RegistrationsService {
       await this.ensureClientAndVehicleLink(dto.clientId, dto.vehicle2Id);
     }
     const payload = this.buildCreateRegistrationData(dto);
+    await this.ensureCardNumberAvailable(payload.cardNumber);
 
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -315,19 +315,36 @@ export class RegistrationsService {
     const current = await this.findActiveRegistrationOrThrow(id);
     const nextClientId = dto.clientId ?? current.clientId;
     const nextVehicleId = dto.vehicleId ?? current.vehicleId;
-    const nextVehicle2Id = dto.vehicle2Id !== undefined ? dto.vehicle2Id : (current as any).vehicle2Id;
+    const nextVehicle2Id =
+      dto.vehicle2Id !== undefined ? dto.vehicle2Id : current.vehicle2Id;
 
     await this.ensureClientAndVehicleLink(nextClientId, nextVehicleId);
     if (nextVehicle2Id) {
       await this.ensureClientAndVehicleLink(nextClientId, nextVehicle2Id);
     }
+    const normalizedCardNumber =
+      dto.cardNumber !== undefined
+        ? normalizeCardNumber(dto.cardNumber)
+        : undefined;
     const payload = this.buildUpdateRegistrationData(dto);
+    if (normalizedCardNumber !== undefined) {
+      await this.ensureCardNumberAvailable(normalizedCardNumber, id);
+    }
 
     try {
       return await this.prisma.$transaction(async (tx) => {
         const updated = await tx.registration.update({
           where: { id },
           data: payload,
+        });
+
+        await this.cleanupDetachedRegistrationRelations(tx, {
+          currentClientId: current.clientId,
+          currentVehicleId: current.vehicleId,
+          currentVehicle2Id: current.vehicle2Id,
+          nextClientId,
+          nextVehicleId,
+          nextVehicle2Id,
         });
 
         await this.auditService.record(
@@ -362,7 +379,16 @@ export class RegistrationsService {
     await this.prisma.$transaction(async (tx) => {
       await tx.registration.update({
         where: { id },
-        data: { deletedAt },
+        data: {
+          deletedAt,
+          cardNumber: null,
+        },
+      });
+
+      await this.cleanupRegistrationAssociations(tx, {
+        clientId: current.clientId,
+        vehicleIds: [current.vehicleId, current.vehicle2Id],
+        deletedAt,
       });
 
       await this.auditService.record(
@@ -482,6 +508,170 @@ export class RegistrationsService {
     }
 
     return data;
+  }
+
+  private async ensureCardNumberAvailable(
+    cardNumber: string | null,
+    excludeId?: string,
+  ) {
+    if (!cardNumber) {
+      return;
+    }
+
+    const existing = await this.prisma.registration.findFirst({
+      where: {
+        cardNumber,
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: {
+        id: true,
+        cardNumber: true,
+        client: {
+          select: {
+            name: true,
+            company: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'asc' }],
+    });
+
+    if (!existing) {
+      return;
+    }
+
+    const ownerName =
+      existing.client.name || existing.client.company || 'outro cadastro';
+
+    throw new BadRequestException(
+      `O numero do cartao ${existing.cardNumber} ja esta sendo usado por ${ownerName}.`,
+    );
+  }
+
+  private async cleanupDetachedRegistrationRelations(
+    tx: Prisma.TransactionClient,
+    params: {
+      currentClientId: string;
+      currentVehicleId: string;
+      currentVehicle2Id?: string | null;
+      nextClientId: string;
+      nextVehicleId: string;
+      nextVehicle2Id?: string | null;
+    },
+  ) {
+    const deletedAt = new Date();
+    const nextVehicleIds = new Set(
+      [params.nextVehicleId, params.nextVehicle2Id].filter(
+        (vehicleId): vehicleId is string => !!vehicleId,
+      ),
+    );
+    const previousVehicleIds = Array.from(
+      new Set(
+        [params.currentVehicleId, params.currentVehicle2Id].filter(
+          (vehicleId): vehicleId is string => !!vehicleId,
+        ),
+      ),
+    );
+
+    for (const vehicleId of previousVehicleIds) {
+      if (!nextVehicleIds.has(vehicleId)) {
+        await this.softDeleteVehicleIfOrphaned(tx, vehicleId, deletedAt);
+      }
+    }
+
+    if (params.currentClientId !== params.nextClientId) {
+      await this.softDeleteClientIfOrphaned(
+        tx,
+        params.currentClientId,
+        deletedAt,
+      );
+    }
+  }
+
+  private async cleanupRegistrationAssociations(
+    tx: Prisma.TransactionClient,
+    params: {
+      clientId: string;
+      vehicleIds: Array<string | null | undefined>;
+      deletedAt: Date;
+    },
+  ) {
+    const vehicleIds = Array.from(
+      new Set(
+        params.vehicleIds.filter(
+          (vehicleId): vehicleId is string => !!vehicleId,
+        ),
+      ),
+    );
+
+    for (const vehicleId of vehicleIds) {
+      await this.softDeleteVehicleIfOrphaned(tx, vehicleId, params.deletedAt);
+    }
+
+    await this.softDeleteClientIfOrphaned(
+      tx,
+      params.clientId,
+      params.deletedAt,
+    );
+  }
+
+  private async softDeleteVehicleIfOrphaned(
+    tx: Prisma.TransactionClient,
+    vehicleId: string,
+    deletedAt: Date,
+  ) {
+    const activeRegistrations = await tx.registration.count({
+      where: {
+        deletedAt: null,
+        OR: [{ vehicleId }, { vehicle2Id: vehicleId }],
+      },
+    });
+
+    if (activeRegistrations > 0) {
+      return;
+    }
+
+    await tx.vehicle.updateMany({
+      where: {
+        id: vehicleId,
+        deletedAt: null,
+      },
+      data: { deletedAt },
+    });
+  }
+
+  private async softDeleteClientIfOrphaned(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+    deletedAt: Date,
+  ) {
+    const [activeRegistrations, activeVehicles] = await Promise.all([
+      tx.registration.count({
+        where: {
+          clientId,
+          deletedAt: null,
+        },
+      }),
+      tx.vehicle.count({
+        where: {
+          clientId,
+          deletedAt: null,
+        },
+      }),
+    ]);
+
+    if (activeRegistrations > 0 || activeVehicles > 0) {
+      return;
+    }
+
+    await tx.client.updateMany({
+      where: {
+        id: clientId,
+        deletedAt: null,
+      },
+      data: { deletedAt },
+    });
   }
 
   private async getListPhotoUrl(photoUrl?: string | null) {

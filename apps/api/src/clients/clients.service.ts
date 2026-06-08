@@ -21,16 +21,9 @@ import { CreateClientDto } from './dto/create-client.dto';
 import { QueryClientsDto } from './dto/query-clients.dto';
 import { UpdateClientDto } from './dto/update-client.dto';
 
-const CLIENT_TYPES = [
-  'Proprietario',
-  'Socio',
-  'Funcionario',
-] as const;
+const CLIENT_TYPES = ['Proprietario', 'Socio', 'Funcionario'] as const;
 
-const CLIENT_MODALITIES = [
-  'Mensalista',
-  'Sala',
-] as const;
+const CLIENT_MODALITIES = ['Mensalista', 'Sala'] as const;
 
 @Injectable()
 export class ClientsService {
@@ -188,7 +181,10 @@ export class ClientsService {
           clientId: id,
           deletedAt: null,
         },
-        data: { deletedAt },
+        data: {
+          deletedAt,
+          cardNumber: null,
+        },
       });
 
       await tx.vehicle.updateMany({

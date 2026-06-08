@@ -5,7 +5,7 @@ type LicenseLike = Pick<LicenseRecord, "status" | "expiresAt">;
 export function isLicenseBlocked(license: LicenseLike | null | undefined) {
   if (!license) return false;
 
-  if (license.status === "EXPIRED" || license.status === "SUSPENDED") {
+  if (license.status === "EXPIRED" || isLicenseSuspended(license)) {
     return true;
   }
 
@@ -15,4 +15,8 @@ export function isLicenseBlocked(license: LicenseLike | null | undefined) {
   }
 
   return expiresAt.getTime() <= Date.now();
+}
+
+export function isLicenseSuspended(license: LicenseLike | null | undefined) {
+  return license?.status === "SUSPENDED";
 }

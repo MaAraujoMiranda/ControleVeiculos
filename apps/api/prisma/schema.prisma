@@ -110,7 +110,7 @@ model Registration {
   clientId       String
   vehicleId      String
   vehicle2Id     String?
-  cardNumber     String?            @unique @db.VarChar(50)
+  cardNumber     String?            @db.VarChar(50)
   trSl           String?            @db.VarChar(50)
   status         RegistrationStatus @default(ACTIVE)
   observations   String?            @db.Text
@@ -125,6 +125,7 @@ model Registration {
   @@index([clientId])
   @@index([vehicleId])
   @@index([vehicle2Id])
+  @@index([cardNumber])
 }
 
 model Configuration {

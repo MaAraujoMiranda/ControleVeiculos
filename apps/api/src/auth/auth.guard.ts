@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../database/prisma.service';
+import { getEffectiveLicenseStatus } from '../license/license-policy';
 import { IS_PUBLIC_KEY } from './auth.constants';
 import { AuthService } from './auth.service';
 import { AuthenticatedRequest } from './types/auth-session.type';
@@ -48,7 +49,7 @@ export class AuthGuard implements CanActivate {
 
     const path = request.path ?? request.originalUrl ?? request.url ?? '';
 
-    if (this.canAccessWithExpiredLicense(path)) {
+    if (this.canAccessWithoutLicenseCheck(path)) {
       return true;
     }
 
@@ -66,22 +67,36 @@ export class AuthGuard implements CanActivate {
     }
 
     const now = new Date();
-    const expiredByDate = new Date(license.expiresAt).getTime() <= now.getTime();
-    const blockedByStatus =
-      license.status === 'EXPIRED' || license.status === 'SUSPENDED';
+    const effectiveStatus = getEffectiveLicenseStatus(
+      license.status,
+      license.expiresAt,
+      now,
+    );
 
-    if (
-      expiredByDate &&
-      license.status !== 'EXPIRED' &&
-      license.status !== 'SUSPENDED'
-    ) {
+    if (effectiveStatus !== license.status) {
       await this.prisma.license.update({
         where: { id: license.id },
-        data: { status: 'EXPIRED' },
+        data: { status: effectiveStatus },
       });
     }
 
-    if (expiredByDate || blockedByStatus) {
+    if (
+      this.canAccessWithExpiredLicense(
+        path,
+        request.method ?? 'GET',
+        effectiveStatus,
+      )
+    ) {
+      return true;
+    }
+
+    if (effectiveStatus === 'SUSPENDED') {
+      throw new ForbiddenException(
+        'Sistema temporariamente fora do ar. Procure a administracao para regularizar a licenca.',
+      );
+    }
+
+    if (effectiveStatus === 'EXPIRED') {
       throw new ForbiddenException(
         'Licenca vencida. Renove em Minha Assinatura para continuar.',
       );
@@ -90,14 +105,34 @@ export class AuthGuard implements CanActivate {
     return true;
   }
 
-  private canAccessWithExpiredLicense(path: string) {
+  private canAccessWithoutLicenseCheck(path: string) {
     return (
-      path.startsWith('/api/v1/license') ||
-      path.startsWith('/license') ||
       path.startsWith('/api/v1/auth/me') ||
       path.startsWith('/auth/me') ||
       path.startsWith('/api/v1/auth/logout') ||
       path.startsWith('/auth/logout')
+    );
+  }
+
+  private canAccessWithExpiredLicense(
+    path: string,
+    method: string,
+    status: string,
+  ) {
+    const isLicensePath =
+      path.startsWith('/api/v1/license') || path.startsWith('/license');
+
+    if (!isLicensePath) {
+      return false;
+    }
+
+    if (status !== 'SUSPENDED') {
+      return true;
+    }
+
+    return (
+      method.toUpperCase() === 'GET' &&
+      (path === '/api/v1/license' || path === '/license')
     );
   }
 }

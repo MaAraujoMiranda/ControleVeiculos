@@ -1,0 +1,172 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Alvo do deploy"
+        type: choice
+        options:
+          - all
+          - api
+          - web
+        default: all
+      skip_backup:
+        description: "Pular backup pre-deploy"
+        type: boolean
+        default: false
+      skip_migrations:
+        description: "Pular migrations Prisma"
+        type: boolean
+        default: false
+
+concurrency:
+  group: controle-veiculos-production
+  cancel-in-progress: false
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      deploy_api: ${{ steps.detect.outputs.deploy_api }}
+      deploy_web: ${{ steps.detect.outputs.deploy_web }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect deploy targets
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_TARGET: ${{ github.event.inputs.target }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          deploy_api=false
+          deploy_web=false
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            t="${MANUAL_TARGET:-all}"
+            case "$t" in
+              api) deploy_api=true ;;
+              web) deploy_web=true ;;
+              all|*)
+                deploy_api=true
+                deploy_web=true
+                ;;
+            esac
+          elif [ -z "$BEFORE_SHA" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            deploy_api=true
+            deploy_web=true
+          else
+            CHANGED="$(git diff --name-only "$BEFORE_SHA" "$AFTER_SHA")"
+            echo "$CHANGED"
+
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              case "$f" in
+                apps/api/*|apps/api/**)
+                  deploy_api=true ;;
+                apps/web/*|apps/web/**)
+                  deploy_web=true ;;
+                packages/*|packages/**|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|ecosystem.config.js|scripts/deploy-actions-pm2.sh|.github/workflows/deploy.yml)
+                  deploy_api=true
+                  deploy_web=true
+                  ;;
+              esac
+            done <<< "$CHANGED"
+          fi
+
+          echo "deploy_api=$deploy_api" >> "$GITHUB_OUTPUT"
+          echo "deploy_web=$deploy_web" >> "$GITHUB_OUTPUT"
+          echo "API: $deploy_api"
+          echo "Web: $deploy_web"
+
+  deploy-api:
+    name: Deploy API
+    runs-on: self-hosted
+    environment: production
+    needs: detect-changes
+    if: needs.detect-changes.outputs.deploy_api == 'true'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Deploy API
+        env:
+          APP_DIR: /ControleVeiculos
+          SOURCE_DIR: ${{ github.workspace }}
+          TARGET: api
+          SKIP_BACKUP: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_backup == 'true' && 'true' || 'false' }}
+          SKIP_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_migrations == 'true' && 'true' || 'false' }}
+        run: bash scripts/deploy-actions-pm2.sh
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          tail -n 120 /ControleVeiculos/logs/api_error.log 2>/dev/null || true
+          tail -n 120 /root/.pm2/logs/controle-veiculos-api-error.log 2>/dev/null || true
+          sudo pm2 status || pm2 status || true
+
+  deploy-web:
+    name: Deploy Web
+    runs-on: self-hosted
+    environment: production
+    needs: [detect-changes, deploy-api]
+    if: |
+      always() &&
+      needs.detect-changes.outputs.deploy_web == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Deploy Web
+        env:
+          APP_DIR: /ControleVeiculos
+          SOURCE_DIR: ${{ github.workspace }}
+          TARGET: web
+          SKIP_BACKUP: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_backup == 'true' && 'true' || 'false' }}
+        run: bash scripts/deploy-actions-pm2.sh
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          tail -n 120 /ControleVeiculos/logs/web_error.log 2>/dev/null || true
+          tail -n 120 /root/.pm2/logs/controle-veiculos-web-error.log 2>/dev/null || true
+          sudo pm2 status || pm2 status || true

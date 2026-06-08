@@ -3,7 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, getErrorMessage } from "../../lib/api";
-import { isLicenseBlocked } from "../../lib/license";
+import { isLicenseBlocked, isLicenseSuspended } from "../../lib/license";
 import { useAuth } from "../../components/auth-provider";
 import { APP_NAME, APP_TAGLINE, BrandVehicleIcon } from "../../components/brand";
 
@@ -36,7 +36,13 @@ export default function LoginPage() {
   async function redirectAfterAuth() {
     try {
       const license = await api.getLicense();
-      router.replace(isLicenseBlocked(license) ? "/subscription" : "/");
+      router.replace(
+        isLicenseSuspended(license)
+          ? "/"
+          : isLicenseBlocked(license)
+            ? "/subscription"
+            : "/",
+      );
     } catch {
       // Se nao conseguir avaliar licenca, mantém fluxo seguro na assinatura.
       router.replace("/subscription");

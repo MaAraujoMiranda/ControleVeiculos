@@ -7,6 +7,10 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { AsaasService } from './asaas.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import {
+  getEffectiveLicenseStatus,
+  getLicenseMaintenanceAt,
+} from './license-policy';
 
 const LICENSE_PRICE = 350;
 const LICENSE_DAYS = 30;
@@ -46,7 +50,18 @@ export class LicenseService {
   }
 
   async createPayment(dto: CreatePaymentDto) {
-    const license = await this.ensureLicenseExists();
+    const license = await this.syncLicenseStatusByExpiry(
+      await this.ensureLicenseExists(),
+    );
+
+    if (
+      getEffectiveLicenseStatus(license.status, license.expiresAt) ===
+      'SUSPENDED'
+    ) {
+      throw new BadRequestException(
+        'Sistema temporariamente fora do ar. Procure a administracao para regularizar a licenca.',
+      );
+    }
 
     if (license.payments.some((p: any) => p.status === 'PENDING')) {
       throw new BadRequestException(
@@ -212,6 +227,24 @@ export class LicenseService {
     if (!license) return;
 
     const now = new Date();
+    const effectiveStatus = getEffectiveLicenseStatus(
+      license.status,
+      license.expiresAt,
+      now,
+    );
+
+    if (effectiveStatus === 'SUSPENDED') {
+      await this.prisma.licensePayment.update({
+        where: { id: paymentId },
+        data: { status: 'CONFIRMED', paidAt: now },
+      });
+
+      this.logger.warn(
+        `Pagamento ${paymentId} confirmado apos suspensao; licenca permanece em manutencao.`,
+      );
+      return;
+    }
+
     const currentExpiry =
       license.status === 'ACTIVE' && license.expiresAt > now
         ? license.expiresAt
@@ -255,9 +288,12 @@ export class LicenseService {
   private serializeLicense(license: any) {
     const now = new Date();
     const expiresAt = new Date(license.expiresAt);
-    const expiredByDate = expiresAt.getTime() <= now.getTime();
-    const effectiveStatus =
-      expiredByDate && license.status !== 'SUSPENDED' ? 'EXPIRED' : license.status;
+    const effectiveStatus = getEffectiveLicenseStatus(
+      license.status,
+      expiresAt,
+      now,
+    );
+    const maintenanceAt = getLicenseMaintenanceAt(expiresAt);
     const daysRemaining = Math.max(
       0,
       Math.ceil(
@@ -270,6 +306,7 @@ export class LicenseService {
       id: license.id,
       status: effectiveStatus as string,
       expiresAt: license.expiresAt,
+      maintenanceAt,
       daysRemaining,
       holderName: license.holderName,
       holderCpf: license.holderCpf,
@@ -293,20 +330,18 @@ export class LicenseService {
   }
 
   private async syncLicenseStatusByExpiry(license: any) {
-    const expiresAt = new Date(license.expiresAt);
-    const expiredByDate = expiresAt.getTime() <= Date.now();
+    const effectiveStatus = getEffectiveLicenseStatus(
+      license.status,
+      license.expiresAt,
+    );
 
-    if (
-      !expiredByDate ||
-      license.status === 'EXPIRED' ||
-      license.status === 'SUSPENDED'
-    ) {
+    if (effectiveStatus === license.status) {
       return license;
     }
 
     return this.prisma.license.update({
       where: { id: license.id },
-      data: { status: 'EXPIRED' },
+      data: { status: effectiveStatus },
       include: {
         payments: {
           orderBy: { createdAt: 'desc' },

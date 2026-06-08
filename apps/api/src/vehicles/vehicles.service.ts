@@ -20,6 +20,24 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { QueryVehiclesDto } from './dto/query-vehicles.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 
+type VehiclePlateCandidate = {
+  id: string;
+  plate: string;
+  brandModel: string | null;
+  createdAt: Date;
+  client: {
+    id: string;
+    name: string | null;
+    company: string | null;
+  };
+  registrations: Array<{ id: string }>;
+  registrations2: Array<{ id: string }>;
+  _count: {
+    registrations: number;
+    registrations2: number;
+  };
+};
+
 @Injectable()
 export class VehiclesService {
   constructor(
@@ -153,7 +171,10 @@ export class VehiclesService {
     const payload = this.buildUpdateVehicleData(dto);
 
     if (dto.plate !== undefined) {
-      await this.ensurePlateAvailable(normalizePlate(cleanString(dto.plate)), id);
+      await this.ensurePlateAvailable(
+        normalizePlate(cleanString(dto.plate)),
+        id,
+      );
     }
 
     try {
@@ -200,7 +221,10 @@ export class VehiclesService {
           vehicleId: id,
           deletedAt: null,
         },
-        data: { deletedAt },
+        data: {
+          deletedAt,
+          cardNumber: null,
+        },
       });
 
       await tx.vehicle.update({
@@ -297,7 +321,7 @@ export class VehiclesService {
     plateNormalized: string,
     excludeId?: string,
   ) {
-    return this.prisma.vehicle.findFirst({
+    const matches = await this.prisma.vehicle.findMany({
       where: {
         plateNormalized,
         deletedAt: null,
@@ -307,6 +331,7 @@ export class VehiclesService {
         id: true,
         plate: true,
         brandModel: true,
+        createdAt: true,
         client: {
           select: {
             id: true,
@@ -314,9 +339,38 @@ export class VehiclesService {
             company: true,
           },
         },
+        registrations: {
+          where: { deletedAt: null },
+          select: { id: true },
+          take: 1,
+        },
+        registrations2: {
+          where: { deletedAt: null },
+          select: { id: true },
+          take: 1,
+        },
+        _count: {
+          select: {
+            registrations: true,
+            registrations2: true,
+          },
+        },
       },
       orderBy: [{ createdAt: 'asc' }],
     });
+
+    const preferred = this.selectPreferredPlateCandidate(matches);
+
+    if (!preferred) {
+      return null;
+    }
+
+    return {
+      id: preferred.id,
+      plate: preferred.plate,
+      brandModel: preferred.brandModel,
+      client: preferred.client,
+    };
   }
 
   private async ensurePlateAvailable(
@@ -344,6 +398,44 @@ export class VehiclesService {
       message: `A placa ${existing.plate} ja esta sendo usada por ${ownerName}.`,
       vehicle: existing,
     });
+  }
+
+  private selectPreferredPlateCandidate(candidates: VehiclePlateCandidate[]) {
+    const eligible = [...candidates]
+      .map((candidate) => ({
+        candidate,
+        priority: this.getPlateCandidatePriority(candidate),
+      }))
+      .filter((entry) => entry.priority < 2)
+      .sort((left, right) => {
+        if (left.priority !== right.priority) {
+          return left.priority - right.priority;
+        }
+
+        return (
+          left.candidate.createdAt.getTime() -
+          right.candidate.createdAt.getTime()
+        );
+      });
+
+    return eligible[0]?.candidate ?? null;
+  }
+
+  private getPlateCandidatePriority(candidate: VehiclePlateCandidate) {
+    const activeReferences =
+      candidate.registrations.length + candidate.registrations2.length;
+    const totalReferences =
+      candidate._count.registrations + candidate._count.registrations2;
+
+    if (activeReferences > 0) {
+      return 0;
+    }
+
+    if (totalReferences === 0) {
+      return 1;
+    }
+
+    return 2;
   }
 
   private buildCreateVehicleData(dto: CreateVehicleDto) {

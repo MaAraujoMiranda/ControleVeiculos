@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, getErrorMessage } from "../lib/api";
-import { isLicenseBlocked } from "../lib/license";
+import { isLicenseBlocked, isLicenseSuspended } from "../lib/license";
 import type { LicenseRecord } from "../lib/types";
 import { useAuth } from "./auth-provider";
 import { APP_NAME, APP_TAGLINE, BrandVehicleIcon } from "./brand";
@@ -220,6 +220,53 @@ function isNavItemActive(pathname: string, href: string) {
   return pathname === href;
 }
 
+function MaintenanceScreen({
+  userName,
+  logoutError,
+  onLogout,
+}: {
+  userName: string;
+  logoutError: string | null;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-10">
+      <div className="w-full max-w-xl rounded-lg border border-[var(--border)] bg-[var(--surface)] p-6 text-center shadow-sm sm:p-8">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--danger-soft)] text-[var(--danger)]">
+          <BrandVehicleIcon className="h-7 w-7" />
+        </div>
+        <span className="mt-5 inline-flex rounded-full border border-[var(--danger)]/20 bg-[var(--danger-soft)] px-3 py-1 text-xs font-semibold uppercase text-[var(--danger)]">
+          Fora do ar
+        </span>
+        <h1
+          className="mt-4 text-2xl font-bold text-[var(--foreground)] sm:text-3xl"
+          style={{ fontFamily: "var(--font-display)" }}
+        >
+          Sistema em manutenção
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+          Este site esta temporariamente fora do ar. Procure a administracao
+          para regularizar a licenca e solicitar a reativacao do acesso.
+        </p>
+        <p className="mt-5 text-xs text-[var(--subtle)]">
+          Sessao atual: {userName}
+        </p>
+        <button
+          type="button"
+          onClick={() => void onLogout()}
+          className="app-button-secondary mx-auto mt-6"
+        >
+          <IconLogout />
+          Sair do sistema
+        </button>
+        {logoutError && (
+          <p className="mt-3 text-xs text-[var(--danger)]">{logoutError}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Component ──────────────────────────────────────────────── */
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -235,6 +282,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isLoginPage = pathname === "/login";
   const isSubscriptionPage = pathname === "/subscription";
   const licenseBlocked = isLicenseBlocked(licenseState);
+  const licenseSuspended = isLicenseSuspended(licenseState);
   const navigationLocked =
     (!licenseChecked && !isLoginPage && !!session) || licenseBlocked;
 
@@ -292,13 +340,16 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && session && isLoginPage && licenseChecked && !licenseLoading) {
-      router.replace(licenseBlocked ? "/subscription" : "/");
+      router.replace(
+        licenseSuspended ? "/" : licenseBlocked ? "/subscription" : "/",
+      );
     }
   }, [
     isLoginPage,
     licenseBlocked,
     licenseChecked,
     licenseLoading,
+    licenseSuspended,
     loading,
     router,
     session,
@@ -312,6 +363,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       licenseChecked &&
       !licenseLoading &&
       licenseBlocked &&
+      !licenseSuspended &&
       !isSubscriptionPage
     ) {
       router.replace("/subscription");
@@ -322,6 +374,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     licenseBlocked,
     licenseChecked,
     licenseLoading,
+    licenseSuspended,
     loading,
     router,
     session,
@@ -407,6 +460,16 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (licenseSuspended) {
+    return (
+      <MaintenanceScreen
+        userName={session.user.name}
+        logoutError={logoutError}
+        onLogout={handleLogout}
+      />
     );
   }
 
