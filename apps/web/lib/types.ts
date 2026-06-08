@@ -36,7 +36,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "OPERATOR" | "VIEWER";
+  role: "SUPER_ADMIN" | "ADMIN" | "OPERATOR" | "VIEWER";
   lastLoginAt: string | null;
 }
 

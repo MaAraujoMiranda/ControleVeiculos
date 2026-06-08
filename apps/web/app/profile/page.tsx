@@ -68,11 +68,13 @@ export default function ProfilePage() {
     : "??";
 
   const roleLabel =
-    session?.user.role === "ADMIN"
-      ? "Administrador"
-      : session?.user.role === "OPERATOR"
-        ? "Operador"
-        : "Consulta";
+    session?.user.role === "SUPER_ADMIN"
+      ? "Super admin"
+      : session?.user.role === "ADMIN"
+        ? "Administrador"
+        : session?.user.role === "OPERATOR"
+          ? "Operador"
+          : "Consulta";
 
   return (
     <div className="space-y-6 py-2">

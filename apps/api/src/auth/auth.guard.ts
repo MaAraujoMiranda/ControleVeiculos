@@ -90,7 +90,7 @@ export class AuthGuard implements CanActivate {
       });
     }
 
-    if (request.authSession.user.role === 'ADMIN') {
+    if (request.authSession.user.role === 'SUPER_ADMIN') {
       return true;
     }
 

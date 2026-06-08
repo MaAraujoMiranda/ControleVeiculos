@@ -227,7 +227,7 @@ export class LicenseService {
   }
 
   async getAdminLicense(session: AuthenticatedSession) {
-    this.assertAdmin(session);
+    this.assertSuperAdmin(session);
     return this.getLicense();
   }
 
@@ -235,7 +235,7 @@ export class LicenseService {
     session: AuthenticatedSession,
     dto: UpdateLicenseAdminDto,
   ) {
-    this.assertAdmin(session);
+    this.assertSuperAdmin(session);
 
     const current = await this.ensureLicenseExists();
     const data: Record<string, unknown> = {};
@@ -284,7 +284,7 @@ export class LicenseService {
     session: AuthenticatedSession,
     dto: SuspendLicenseDto,
   ) {
-    this.assertAdmin(session);
+    this.assertSuperAdmin(session);
 
     const current = await this.ensureLicenseExists();
     const now = new Date();
@@ -316,7 +316,7 @@ export class LicenseService {
   }
 
   async unsuspendManually(session: AuthenticatedSession) {
-    this.assertAdmin(session);
+    this.assertSuperAdmin(session);
 
     const current = await this.ensureLicenseExists();
     const updated = await this.prisma.license.update({
@@ -495,10 +495,10 @@ export class LicenseService {
     });
   }
 
-  private assertAdmin(session: AuthenticatedSession) {
-    if (session.user.role !== 'ADMIN') {
+  private assertSuperAdmin(session: AuthenticatedSession) {
+    if (session.user.role !== 'SUPER_ADMIN') {
       throw new ForbiddenException(
-        'Apenas administradores podem alterar a licenca.',
+        'Apenas super administradores podem alterar a licenca.',
       );
     }
   }

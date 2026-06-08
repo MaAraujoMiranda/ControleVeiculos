@@ -18,6 +18,13 @@ async function main() {
     .trim()
     .toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD || 'Admin@123456';
+  const superAdminName = (
+    process.env.SUPER_ADMIN_NAME || 'Super Administrador'
+  ).trim();
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || '')
+    .trim()
+    .toLowerCase();
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || '';
 
   await prisma.configuration.upsert({
     where: { id: 1 },
@@ -43,6 +50,23 @@ async function main() {
       role: 'ADMIN',
     },
   });
+
+  if (superAdminEmail && superAdminPassword) {
+    await prisma.user.upsert({
+      where: { email: superAdminEmail },
+      update: {
+        name: superAdminName,
+        role: 'SUPER_ADMIN',
+        isActive: true,
+      },
+      create: {
+        name: superAdminName,
+        email: superAdminEmail,
+        passwordHash: hashPassword(superAdminPassword),
+        role: 'SUPER_ADMIN',
+      },
+    });
+  }
 }
 
 main()

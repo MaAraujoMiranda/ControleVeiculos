@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [maintenanceHour, setMaintenanceHour] = useState("23");
   const [maintenanceTimeZone, setMaintenanceTimeZone] = useState("America/Sao_Paulo");
   const [manualSuspensionReason, setManualSuspensionReason] = useState("");
-  const isAdmin = session?.user.role === "ADMIN";
+  const isSuperAdmin = session?.user.role === "SUPER_ADMIN";
   const apiOnline = health?.status?.toLowerCase() === "ok";
   const databaseOnline = health?.database.status === "connected";
 
@@ -46,7 +46,7 @@ export default function SettingsPage() {
       const [nextConfiguration, nextHealth, nextLicense] = await Promise.all([
         api.getConfiguration(),
         api.getHealth(),
-        isAdmin ? api.getLicenseAdmin() : Promise.resolve(null),
+        isSuperAdmin ? api.getLicenseAdmin() : Promise.resolve(null),
       ]);
 
       setConfiguration(nextConfiguration);
@@ -142,7 +142,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     void loadSettings();
-  }, [isAdmin]);
+  }, [isSuperAdmin]);
 
   return (
     <div className="space-y-6 py-2">
@@ -322,7 +322,7 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {isAdmin && (
+      {isSuperAdmin && (
         <section className="grid gap-6 xl:grid-cols-[0.9fr_1fr]">
           <article className="app-panel app-rise-in space-y-5">
             <div>

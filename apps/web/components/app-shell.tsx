@@ -283,17 +283,19 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSubscriptionPage = pathname === "/subscription";
   const licenseBlocked = isLicenseBlocked(licenseState);
   const licenseSuspended = isLicenseSuspended(licenseState);
-  const canManageSuspendedLicense = session?.user.role === "ADMIN";
+  const canManageSuspendedLicense = session?.user.role === "SUPER_ADMIN";
   const navigationLocked =
     (!licenseChecked && !isLoginPage && !!session) ||
     (licenseBlocked && !canManageSuspendedLicense);
 
   const userRoleLabel =
-    session?.user.role === "ADMIN"
-      ? "Administrador"
-      : session?.user.role === "OPERATOR"
-        ? "Operador"
-        : "Consulta";
+    session?.user.role === "SUPER_ADMIN"
+      ? "Super admin"
+      : session?.user.role === "ADMIN"
+        ? "Administrador"
+        : session?.user.role === "OPERATOR"
+          ? "Operador"
+          : "Consulta";
 
   const userInitials = session?.user.name
     ? session.user.name
