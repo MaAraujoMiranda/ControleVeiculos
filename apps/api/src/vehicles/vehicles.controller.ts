@@ -52,3 +52,4 @@ export class VehiclesController {
     return this.vehiclesService.deleteVehicle(id);
   }
 }
+//teste
