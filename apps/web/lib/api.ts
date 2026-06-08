@@ -170,6 +170,34 @@ export const api = {
     return apiRequest<LicenseRecord>("/license");
   },
 
+  getLicenseAdmin() {
+    return apiRequest<LicenseRecord>("/license/admin");
+  },
+
+  updateLicenseAdminSettings(payload: {
+    maintenanceGraceDays?: number;
+    maintenanceHour?: number;
+    maintenanceTimeZone?: string;
+  }) {
+    return apiRequest<LicenseRecord>("/license/admin/settings", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  suspendLicense(payload: { reason?: string }) {
+    return apiRequest<LicenseRecord>("/license/admin/suspend", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  unsuspendLicense() {
+    return apiRequest<LicenseRecord>("/license/admin/unsuspend", {
+      method: "POST",
+    });
+  },
+
   createLicensePayment(payload: CreatePaymentPayload) {
     return apiRequest<LicensePayment>("/license/payment", {
       method: "POST",

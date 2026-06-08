@@ -1,5 +1,12 @@
 export type LicenseStatusValue = 'TRIAL' | 'ACTIVE' | 'EXPIRED' | 'SUSPENDED';
 
+export type LicensePolicyConfig = {
+  maintenanceGraceDays?: number | null;
+  maintenanceHour?: number | null;
+  maintenanceTimeZone?: string | null;
+  manuallySuspendedAt?: Date | string | null;
+};
+
 const DEFAULT_LICENSE_MAINTENANCE_GRACE_DAYS = 10;
 const DEFAULT_LICENSE_MAINTENANCE_HOUR = 23;
 const DEFAULT_LICENSE_TIME_ZONE = 'America/Sao_Paulo';
@@ -29,22 +36,29 @@ function clampHour(hour: number) {
   return hour;
 }
 
-function getMaintenanceConfig() {
+function getMaintenanceConfig(config?: LicensePolicyConfig) {
   return {
     graceDays: Math.max(
       0,
-      readIntegerEnv(
-        'LICENSE_MAINTENANCE_GRACE_DAYS',
-        DEFAULT_LICENSE_MAINTENANCE_GRACE_DAYS,
-      ),
+      Number.isInteger(config?.maintenanceGraceDays)
+        ? Number(config?.maintenanceGraceDays)
+        : readIntegerEnv(
+            'LICENSE_MAINTENANCE_GRACE_DAYS',
+            DEFAULT_LICENSE_MAINTENANCE_GRACE_DAYS,
+          ),
     ),
     hour: clampHour(
-      readIntegerEnv(
-        'LICENSE_MAINTENANCE_HOUR',
-        DEFAULT_LICENSE_MAINTENANCE_HOUR,
-      ),
+      Number.isInteger(config?.maintenanceHour)
+        ? Number(config?.maintenanceHour)
+        : readIntegerEnv(
+            'LICENSE_MAINTENANCE_HOUR',
+            DEFAULT_LICENSE_MAINTENANCE_HOUR,
+          ),
     ),
-    timeZone: process.env.LICENSE_TIME_ZONE || DEFAULT_LICENSE_TIME_ZONE,
+    timeZone:
+      config?.maintenanceTimeZone ||
+      process.env.LICENSE_TIME_ZONE ||
+      DEFAULT_LICENSE_TIME_ZONE,
   };
 }
 
@@ -109,8 +123,11 @@ function zonedDateTimeToUtc(
   return new Date(guessedUtc.getTime() - secondOffset);
 }
 
-export function getLicenseMaintenanceAt(expiresAtInput: Date | string) {
-  const config = getMaintenanceConfig();
+export function getLicenseMaintenanceAt(
+  expiresAtInput: Date | string,
+  policyConfig?: LicensePolicyConfig,
+) {
+  const config = getMaintenanceConfig(policyConfig);
   const expiresAt = new Date(expiresAtInput);
   const expiresAtLocal = getZonedParts(expiresAt, config.timeZone);
 
@@ -140,18 +157,21 @@ export function getEffectiveLicenseStatus(
   status: LicenseStatusValue,
   expiresAtInput: Date | string,
   now = new Date(),
+  policyConfig?: LicensePolicyConfig,
 ): LicenseStatusValue {
-  if (status === 'SUSPENDED') {
+  if (policyConfig?.manuallySuspendedAt) {
     return 'SUSPENDED';
   }
 
   const expiresAt = new Date(expiresAtInput);
 
   if (expiresAt.getTime() > now.getTime()) {
-    return status;
+    return status === 'EXPIRED' || status === 'SUSPENDED'
+      ? 'ACTIVE'
+      : status;
   }
 
-  const maintenanceAt = getLicenseMaintenanceAt(expiresAt);
+  const maintenanceAt = getLicenseMaintenanceAt(expiresAt, policyConfig);
 
   if (maintenanceAt.getTime() <= now.getTime()) {
     return 'SUSPENDED';

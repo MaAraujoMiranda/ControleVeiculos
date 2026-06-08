@@ -201,6 +201,11 @@ export interface LicenseRecord {
   status: "TRIAL" | "ACTIVE" | "EXPIRED" | "SUSPENDED";
   expiresAt: string;
   maintenanceAt: string;
+  maintenanceGraceDays: number;
+  maintenanceHour: number;
+  maintenanceTimeZone: string;
+  manuallySuspendedAt: string | null;
+  manualSuspensionReason: string | null;
   daysRemaining: number;
   holderName: string | null;
   holderCpf: string | null;

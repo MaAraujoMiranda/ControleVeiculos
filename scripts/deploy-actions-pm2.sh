@@ -130,13 +130,13 @@ cd "$APP_DIR"
 
 if needs_api; then
   log "Recarregando PM2: controle-veiculos-api"
-  $SUDO pm2 reload "$APP_DIR/ecosystem.config.js" --only controle-veiculos-api --env production --update-env \
+  $SUDO pm2 reload controle-veiculos-api --update-env \
     || $SUDO pm2 start "$APP_DIR/ecosystem.config.js" --only controle-veiculos-api --env production
 fi
 
 if needs_web; then
   log "Recarregando PM2: controle-veiculos-web"
-  $SUDO pm2 reload "$APP_DIR/ecosystem.config.js" --only controle-veiculos-web --env production --update-env \
+  $SUDO pm2 reload controle-veiculos-web --update-env \
     || $SUDO pm2 start "$APP_DIR/ecosystem.config.js" --only controle-veiculos-web --env production
 fi
 

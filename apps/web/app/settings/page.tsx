@@ -1,33 +1,57 @@
 "use client";
 
 import { type FormEvent, useEffect, useState } from "react";
+import { useAuth } from "../../components/auth-provider";
 import { api, getErrorMessage } from "../../lib/api";
-import type { Configuration, HealthResponse } from "../../lib/types";
+import { formatDateTime } from "../../lib/format";
+import type { Configuration, HealthResponse, LicenseRecord } from "../../lib/types";
 
 export default function SettingsPage() {
+  const { session } = useAuth();
   const [configuration, setConfiguration] = useState<Configuration | null>(null);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [license, setLicense] = useState<LicenseRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingLicense, setSavingLicense] = useState(false);
+  const [suspendingLicense, setSuspendingLicense] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [allowMultipleVehicles, setAllowMultipleVehicles] = useState(false);
   const [sessionDurationDays, setSessionDurationDays] = useState("7");
+  const [maintenanceGraceDays, setMaintenanceGraceDays] = useState("10");
+  const [maintenanceHour, setMaintenanceHour] = useState("23");
+  const [maintenanceTimeZone, setMaintenanceTimeZone] = useState("America/Sao_Paulo");
+  const [manualSuspensionReason, setManualSuspensionReason] = useState("");
+  const isAdmin = session?.user.role === "ADMIN";
   const apiOnline = health?.status?.toLowerCase() === "ok";
   const databaseOnline = health?.database.status === "connected";
+
+  function hydrateLicense(nextLicense: LicenseRecord | null) {
+    setLicense(nextLicense);
+
+    if (!nextLicense) return;
+
+    setMaintenanceGraceDays(String(nextLicense.maintenanceGraceDays));
+    setMaintenanceHour(String(nextLicense.maintenanceHour));
+    setMaintenanceTimeZone(nextLicense.maintenanceTimeZone);
+    setManualSuspensionReason(nextLicense.manualSuspensionReason ?? "");
+  }
 
   async function loadSettings() {
     setLoading(true);
     setError(null);
 
     try {
-      const [nextConfiguration, nextHealth] = await Promise.all([
+      const [nextConfiguration, nextHealth, nextLicense] = await Promise.all([
         api.getConfiguration(),
         api.getHealth(),
+        isAdmin ? api.getLicenseAdmin() : Promise.resolve(null),
       ]);
 
       setConfiguration(nextConfiguration);
       setHealth(nextHealth);
+      hydrateLicense(nextLicense);
       setAllowMultipleVehicles(
         nextConfiguration.allowMultipleVehiclesPerClient,
       );
@@ -60,9 +84,65 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleLicenseSettingsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSavingLicense(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const updated = await api.updateLicenseAdminSettings({
+        maintenanceGraceDays: Number(maintenanceGraceDays),
+        maintenanceHour: Number(maintenanceHour),
+        maintenanceTimeZone,
+      });
+
+      hydrateLicense(updated);
+      setSuccess("Configuracoes da licenca atualizadas.");
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    } finally {
+      setSavingLicense(false);
+    }
+  }
+
+  async function handleSuspendLicense() {
+    setSuspendingLicense(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const updated = await api.suspendLicense({
+        reason: manualSuspensionReason,
+      });
+      hydrateLicense(updated);
+      setSuccess("Licenca suspensa. O cliente vera a tela de manutencao.");
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    } finally {
+      setSuspendingLicense(false);
+    }
+  }
+
+  async function handleUnsuspendLicense() {
+    setSuspendingLicense(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const updated = await api.unsuspendLicense();
+      hydrateLicense(updated);
+      setSuccess("Suspensao manual removida. O status foi recalculado.");
+    } catch (nextError) {
+      setError(getErrorMessage(nextError));
+    } finally {
+      setSuspendingLicense(false);
+    }
+  }
+
   useEffect(() => {
     void loadSettings();
-  }, []);
+  }, [isAdmin]);
 
   return (
     <div className="space-y-6 py-2">
@@ -241,6 +321,175 @@ export default function SettingsPage() {
           </article>
         </div>
       </section>
+
+      {isAdmin && (
+        <section className="grid gap-6 xl:grid-cols-[0.9fr_1fr]">
+          <article className="app-panel app-rise-in space-y-5">
+            <div>
+              <span className="app-badge">Administracao da licenca</span>
+              <p
+                className="mt-3 text-2xl font-semibold"
+                style={{ fontFamily: "var(--font-display)" }}
+              >
+                Controle de bloqueio do cliente
+              </p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Alteracoes aqui sao aplicadas na proxima consulta da licenca.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-[var(--border)] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Status
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {license?.status ?? "Carregando..."}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Suspensao manual
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {license?.manuallySuspendedAt ? "Ativa" : "Inativa"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Vencimento
+                </p>
+                <p className="mt-2 text-sm font-semibold">
+                  {license ? formatDateTime(license.expiresAt) : "-"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-[var(--border)] px-4 py-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+                  Fora do ar em
+                </p>
+                <p className="mt-2 text-sm font-semibold">
+                  {license ? formatDateTime(license.maintenanceAt) : "-"}
+                </p>
+              </div>
+            </div>
+          </article>
+
+          <div className="grid gap-6">
+            <form
+              className="app-panel app-rise-in space-y-5"
+              onSubmit={handleLicenseSettingsSubmit}
+            >
+              <div>
+                <p
+                  className="text-xl font-semibold"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  Prazo de manutencao
+                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Define quando a licenca vencida deixa de mostrar pagamento e
+                  passa para fora do ar.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="block">
+                  <span className="app-label">Dias de tolerancia</span>
+                  <input
+                    className="app-input"
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={maintenanceGraceDays}
+                    onChange={(event) =>
+                      setMaintenanceGraceDays(event.target.value)
+                    }
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="app-label">Hora de corte</span>
+                  <input
+                    className="app-input"
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={maintenanceHour}
+                    onChange={(event) => setMaintenanceHour(event.target.value)}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="app-label">Fuso horario</span>
+                  <input
+                    className="app-input"
+                    value={maintenanceTimeZone}
+                    onChange={(event) =>
+                      setMaintenanceTimeZone(event.target.value)
+                    }
+                  />
+                </label>
+              </div>
+
+              <button
+                className="app-button-primary"
+                type="submit"
+                disabled={savingLicense}
+              >
+                {savingLicense ? "Salvando..." : "Salvar regra da licenca"}
+              </button>
+            </form>
+
+            <div className="app-panel app-rise-in space-y-5">
+              <div>
+                <p
+                  className="text-xl font-semibold"
+                  style={{ fontFamily: "var(--font-display)" }}
+                >
+                  Bloqueio manual
+                </p>
+                <p className="mt-1 text-sm text-[var(--muted)]">
+                  Suspender leva o cliente para manutencao imediatamente.
+                  Desbloquear remove apenas a suspensao manual e recalcula o
+                  status pela regra acima.
+                </p>
+              </div>
+
+              <label className="block">
+                <span className="app-label">Motivo interno</span>
+                <input
+                  className="app-input"
+                  maxLength={255}
+                  value={manualSuspensionReason}
+                  onChange={(event) =>
+                    setManualSuspensionReason(event.target.value)
+                  }
+                  placeholder="Ex.: pagamento em atraso, analise financeira"
+                />
+              </label>
+
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className="app-button-secondary border border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger-soft)]"
+                  disabled={suspendingLicense}
+                  onClick={() => void handleSuspendLicense()}
+                >
+                  {suspendingLicense ? "Aplicando..." : "Suspender agora"}
+                </button>
+                <button
+                  type="button"
+                  className="app-button-secondary"
+                  disabled={suspendingLicense}
+                  onClick={() => void handleUnsuspendLicense()}
+                >
+                  {suspendingLicense ? "Aplicando..." : "Desbloquear"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

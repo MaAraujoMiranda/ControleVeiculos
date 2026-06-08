@@ -137,16 +137,21 @@ model Configuration {
 }
 
 model License {
-  id              String        @id @default(cuid())
-  status          LicenseStatus @default(TRIAL)
-  expiresAt       DateTime
-  asaasCustomerId String?       @db.VarChar(191)
-  holderName      String?       @db.VarChar(160)
-  holderCpf       String?       @db.VarChar(14)
-  holderEmail     String?       @db.VarChar(191)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  payments        LicensePayment[]
+  id                     String        @id @default(cuid())
+  status                 LicenseStatus @default(TRIAL)
+  expiresAt              DateTime
+  maintenanceGraceDays   Int           @default(10)
+  maintenanceHour        Int           @default(23)
+  maintenanceTimeZone    String        @default("America/Sao_Paulo") @db.VarChar(64)
+  manuallySuspendedAt    DateTime?
+  manualSuspensionReason String?       @db.VarChar(255)
+  asaasCustomerId        String?       @db.VarChar(191)
+  holderName             String?       @db.VarChar(160)
+  holderCpf              String?       @db.VarChar(14)
+  holderEmail            String?       @db.VarChar(191)
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  payments               LicensePayment[]
 }
 
 model LicensePayment {

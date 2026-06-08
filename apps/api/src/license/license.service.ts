@@ -1,12 +1,18 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { AuditAction } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../database/prisma.service';
+import type { AuthenticatedSession } from '../auth/types/auth-session.type';
 import { AsaasService } from './asaas.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { SuspendLicenseDto } from './dto/suspend-license.dto';
+import { UpdateLicenseAdminDto } from './dto/update-license-admin.dto';
 import {
   getEffectiveLicenseStatus,
   getLicenseMaintenanceAt,
@@ -22,6 +28,7 @@ export class LicenseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly asaasService: AsaasService,
+    private readonly auditService: AuditService,
   ) {}
 
   async getLicense() {
@@ -55,8 +62,12 @@ export class LicenseService {
     );
 
     if (
-      getEffectiveLicenseStatus(license.status, license.expiresAt) ===
-      'SUSPENDED'
+      getEffectiveLicenseStatus(
+        license.status,
+        license.expiresAt,
+        new Date(),
+        this.getPolicyConfig(license),
+      ) === 'SUSPENDED'
     ) {
       throw new BadRequestException(
         'Sistema temporariamente fora do ar. Procure a administracao para regularizar a licenca.',
@@ -215,6 +226,126 @@ export class LicenseService {
     }
   }
 
+  async getAdminLicense(session: AuthenticatedSession) {
+    this.assertAdmin(session);
+    return this.getLicense();
+  }
+
+  async updateAdminSettings(
+    session: AuthenticatedSession,
+    dto: UpdateLicenseAdminDto,
+  ) {
+    this.assertAdmin(session);
+
+    const current = await this.ensureLicenseExists();
+    const data: Record<string, unknown> = {};
+
+    if (dto.maintenanceGraceDays !== undefined) {
+      data.maintenanceGraceDays = dto.maintenanceGraceDays;
+    }
+
+    if (dto.maintenanceHour !== undefined) {
+      data.maintenanceHour = dto.maintenanceHour;
+    }
+
+    if (dto.maintenanceTimeZone !== undefined) {
+      data.maintenanceTimeZone = dto.maintenanceTimeZone.trim();
+    }
+
+    if (Object.keys(data).length === 0) {
+      return this.serializeLicense(await this.syncLicenseStatusByExpiry(current));
+    }
+
+    const updated = await this.prisma.license.update({
+      where: { id: current.id },
+      data,
+      include: {
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+    const synced = await this.syncLicenseStatusByExpiry(updated);
+
+    await this.auditService.record({
+      action: AuditAction.UPDATE,
+      entity: 'license_settings',
+      entityId: synced.id,
+      userId: session.userId,
+      previousData: this.serializeLicense(current),
+      newData: this.serializeLicense(synced),
+    });
+
+    return this.serializeLicense(synced);
+  }
+
+  async suspendManually(
+    session: AuthenticatedSession,
+    dto: SuspendLicenseDto,
+  ) {
+    this.assertAdmin(session);
+
+    const current = await this.ensureLicenseExists();
+    const now = new Date();
+    const updated = await this.prisma.license.update({
+      where: { id: current.id },
+      data: {
+        status: 'SUSPENDED',
+        manuallySuspendedAt: now,
+        manualSuspensionReason: dto.reason?.trim() || null,
+      },
+      include: {
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+
+    await this.auditService.record({
+      action: AuditAction.UPDATE,
+      entity: 'license_manual_suspension',
+      entityId: updated.id,
+      userId: session.userId,
+      previousData: this.serializeLicense(current),
+      newData: this.serializeLicense(updated),
+    });
+
+    return this.serializeLicense(updated);
+  }
+
+  async unsuspendManually(session: AuthenticatedSession) {
+    this.assertAdmin(session);
+
+    const current = await this.ensureLicenseExists();
+    const updated = await this.prisma.license.update({
+      where: { id: current.id },
+      data: {
+        manuallySuspendedAt: null,
+        manualSuspensionReason: null,
+      },
+      include: {
+        payments: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+    const synced = await this.syncLicenseStatusByExpiry(updated);
+
+    await this.auditService.record({
+      action: AuditAction.UPDATE,
+      entity: 'license_manual_suspension',
+      entityId: synced.id,
+      userId: session.userId,
+      previousData: this.serializeLicense(current),
+      newData: this.serializeLicense(synced),
+    });
+
+    return this.serializeLicense(synced);
+  }
+
   private async confirmPayment(
     paymentId: string,
     licenseId: string,
@@ -231,6 +362,7 @@ export class LicenseService {
       license.status,
       license.expiresAt,
       now,
+      this.getPolicyConfig(license),
     );
 
     if (effectiveStatus === 'SUSPENDED') {
@@ -292,8 +424,12 @@ export class LicenseService {
       license.status,
       expiresAt,
       now,
+      this.getPolicyConfig(license),
     );
-    const maintenanceAt = getLicenseMaintenanceAt(expiresAt);
+    const maintenanceAt = getLicenseMaintenanceAt(
+      expiresAt,
+      this.getPolicyConfig(license),
+    );
     const daysRemaining = Math.max(
       0,
       Math.ceil(
@@ -307,6 +443,12 @@ export class LicenseService {
       status: effectiveStatus as string,
       expiresAt: license.expiresAt,
       maintenanceAt,
+      maintenanceGraceDays: license.maintenanceGraceDays ?? 10,
+      maintenanceHour: license.maintenanceHour ?? 23,
+      maintenanceTimeZone:
+        license.maintenanceTimeZone ?? 'America/Sao_Paulo',
+      manuallySuspendedAt: license.manuallySuspendedAt ?? null,
+      manualSuspensionReason: license.manualSuspensionReason ?? null,
       daysRemaining,
       holderName: license.holderName,
       holderCpf: license.holderCpf,
@@ -333,6 +475,8 @@ export class LicenseService {
     const effectiveStatus = getEffectiveLicenseStatus(
       license.status,
       license.expiresAt,
+      new Date(),
+      this.getPolicyConfig(license),
     );
 
     if (effectiveStatus === license.status) {
@@ -349,5 +493,23 @@ export class LicenseService {
         },
       },
     });
+  }
+
+  private assertAdmin(session: AuthenticatedSession) {
+    if (session.user.role !== 'ADMIN') {
+      throw new ForbiddenException(
+        'Apenas administradores podem alterar a licenca.',
+      );
+    }
+  }
+
+  private getPolicyConfig(license: any) {
+    return {
+      maintenanceGraceDays: license.maintenanceGraceDays ?? 10,
+      maintenanceHour: license.maintenanceHour ?? 23,
+      maintenanceTimeZone:
+        license.maintenanceTimeZone ?? 'America/Sao_Paulo',
+      manuallySuspendedAt: license.manuallySuspendedAt ?? null,
+    };
   }
 }

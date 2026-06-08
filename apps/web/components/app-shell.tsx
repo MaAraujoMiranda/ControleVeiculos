@@ -283,8 +283,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSubscriptionPage = pathname === "/subscription";
   const licenseBlocked = isLicenseBlocked(licenseState);
   const licenseSuspended = isLicenseSuspended(licenseState);
+  const canManageSuspendedLicense = session?.user.role === "ADMIN";
   const navigationLocked =
-    (!licenseChecked && !isLoginPage && !!session) || licenseBlocked;
+    (!licenseChecked && !isLoginPage && !!session) ||
+    (licenseBlocked && !canManageSuspendedLicense);
 
   const userRoleLabel =
     session?.user.role === "ADMIN"
@@ -341,7 +343,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && session && isLoginPage && licenseChecked && !licenseLoading) {
       router.replace(
-        licenseSuspended ? "/" : licenseBlocked ? "/subscription" : "/",
+        licenseSuspended || !licenseBlocked ? "/" : "/subscription",
       );
     }
   }, [
@@ -363,6 +365,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       licenseChecked &&
       !licenseLoading &&
       licenseBlocked &&
+      !canManageSuspendedLicense &&
       !licenseSuspended &&
       !isSubscriptionPage
     ) {
@@ -375,6 +378,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     licenseChecked,
     licenseLoading,
     licenseSuspended,
+    canManageSuspendedLicense,
     loading,
     router,
     session,
@@ -463,7 +467,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (licenseSuspended) {
+  if (licenseSuspended && !canManageSuspendedLicense) {
     return (
       <MaintenanceScreen
         userName={session.user.name}

@@ -59,6 +59,10 @@ export class AuthGuard implements CanActivate {
         id: true,
         status: true,
         expiresAt: true,
+        maintenanceGraceDays: true,
+        maintenanceHour: true,
+        maintenanceTimeZone: true,
+        manuallySuspendedAt: true,
       },
     });
 
@@ -71,6 +75,12 @@ export class AuthGuard implements CanActivate {
       license.status,
       license.expiresAt,
       now,
+      {
+        maintenanceGraceDays: license.maintenanceGraceDays,
+        maintenanceHour: license.maintenanceHour,
+        maintenanceTimeZone: license.maintenanceTimeZone,
+        manuallySuspendedAt: license.manuallySuspendedAt,
+      },
     );
 
     if (effectiveStatus !== license.status) {
@@ -78,6 +88,10 @@ export class AuthGuard implements CanActivate {
         where: { id: license.id },
         data: { status: effectiveStatus },
       });
+    }
+
+    if (request.authSession.user.role === 'ADMIN') {
+      return true;
     }
 
     if (
