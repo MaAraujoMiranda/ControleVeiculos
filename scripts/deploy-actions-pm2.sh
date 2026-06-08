@@ -113,7 +113,9 @@ if [ "$TARGET" = "api" ]; then
 fi
 
 if [ "$TARGET" = "web" ]; then
+  RSYNC_EXCLUDES+=(--exclude='/node_modules/')
   RSYNC_EXCLUDES+=(--exclude='/apps/api/dist/')
+  RSYNC_EXCLUDES+=(--exclude='/apps/api/node_modules/')
 fi
 
 $SUDO rsync -a --delete "${RSYNC_EXCLUDES[@]}" "$SOURCE_DIR/" "$APP_DIR/"
