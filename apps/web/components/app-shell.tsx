@@ -283,10 +283,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isSubscriptionPage = pathname === "/subscription";
   const licenseBlocked = isLicenseBlocked(licenseState);
   const licenseSuspended = isLicenseSuspended(licenseState);
-  const canManageSuspendedLicense = session?.user.role === "SUPER_ADMIN";
+  const canBypassLicenseLock = session?.user.role === "SUPER_ADMIN";
   const navigationLocked =
     (!licenseChecked && !isLoginPage && !!session) ||
-    (licenseBlocked && !canManageSuspendedLicense);
+    (licenseBlocked && !canBypassLicenseLock);
 
   const userRoleLabel =
     session?.user.role === "SUPER_ADMIN"
@@ -345,10 +345,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && session && isLoginPage && licenseChecked && !licenseLoading) {
       router.replace(
-        licenseSuspended || !licenseBlocked ? "/" : "/subscription",
+        canBypassLicenseLock || licenseSuspended || !licenseBlocked
+          ? "/"
+          : "/subscription",
       );
     }
   }, [
+    canBypassLicenseLock,
     isLoginPage,
     licenseBlocked,
     licenseChecked,
@@ -367,7 +370,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       licenseChecked &&
       !licenseLoading &&
       licenseBlocked &&
-      !canManageSuspendedLicense &&
+      !canBypassLicenseLock &&
       !licenseSuspended &&
       !isSubscriptionPage
     ) {
@@ -380,7 +383,30 @@ export function AppShell({ children }: { children: ReactNode }) {
     licenseChecked,
     licenseLoading,
     licenseSuspended,
-    canManageSuspendedLicense,
+    canBypassLicenseLock,
+    loading,
+    router,
+    session,
+  ]);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      session &&
+      canBypassLicenseLock &&
+      isSubscriptionPage &&
+      licenseChecked &&
+      !licenseLoading &&
+      licenseBlocked
+    ) {
+      router.replace("/");
+    }
+  }, [
+    canBypassLicenseLock,
+    isSubscriptionPage,
+    licenseBlocked,
+    licenseChecked,
+    licenseLoading,
     loading,
     router,
     session,
@@ -469,7 +495,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
 
-  if (licenseSuspended && !canManageSuspendedLicense) {
+  if (licenseSuspended && !canBypassLicenseLock) {
     return (
       <MaintenanceScreen
         userName={session.user.name}
@@ -694,7 +720,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* ── Main content ── */}
       <main className="flex min-h-screen flex-1 flex-col overflow-x-hidden lg:pl-64">
         <div className="flex-1 px-4 pb-24 pt-20 sm:px-6 lg:px-8 lg:pb-8 lg:pt-6 app-rise-in max-w-400 w-full mx-auto">
-          {licenseBlocked && (
+          {licenseBlocked && !canBypassLicenseLock && (
             <div className="mb-4 rounded-xl border border-[var(--danger)]/20 bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
               Licenca vencida. O acesso esta temporariamente bloqueado. Renove em{" "}
               <strong>Minha Assinatura</strong> para liberar o sistema.
