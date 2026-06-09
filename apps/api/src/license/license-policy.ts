@@ -131,13 +131,15 @@ export function getLicenseMaintenanceAt(
   const expiresAt = new Date(expiresAtInput);
   const expiresAtLocal = getZonedParts(expiresAt, config.timeZone);
 
-  // Due date is day zero; with the current production license shown as
-  // 28/05/2026, the maintenance cutover becomes 08/06/2026 at the configured hour.
+  // The expiration date is counted as the first overdue day. With an expiration
+  // shown as 28/05/2026 and 10 grace days, cutover is 06/06/2026 at the
+  // configured hour.
+  const extraDays = Math.max(0, config.graceDays - 1);
   const targetLocalDate = new Date(
     Date.UTC(
       expiresAtLocal.year,
       expiresAtLocal.month - 1,
-      expiresAtLocal.day + config.graceDays + 1,
+      expiresAtLocal.day + extraDays,
       config.hour,
       0,
       0,

@@ -32,6 +32,9 @@ export default function SettingsPage() {
 
     if (!nextLicense) return;
 
+    window.dispatchEvent(
+      new CustomEvent("license:updated", { detail: nextLicense }),
+    );
     setMaintenanceGraceDays(String(nextLicense.maintenanceGraceDays));
     setMaintenanceHour(String(nextLicense.maintenanceHour));
     setMaintenanceTimeZone(nextLicense.maintenanceTimeZone);
